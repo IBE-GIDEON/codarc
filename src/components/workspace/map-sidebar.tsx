@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, HelpCircle } from "lucide-react";
+import { IconButton } from "@/components/ui/button";
 import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
 import { SearchField } from "@/components/workspace/search-field";
@@ -18,6 +19,7 @@ export function MapSidebar({
   query,
   onQueryChange,
   matches,
+  onReplayTour,
 }: {
   map: RepoMap;
   selectedId: string | null;
@@ -25,6 +27,7 @@ export function MapSidebar({
   query: string;
   onQueryChange: (v: string) => void;
   matches: Set<string> | null;
+  onReplayTour: () => void;
 }) {
   const visible = React.useMemo(
     () => (matches ? map.nodes.filter((n) => matches.has(n.id)) : map.nodes),
@@ -57,7 +60,16 @@ export function MapSidebar({
         <Link href="/" aria-label="Codarc home" className="notion-hover px-1 py-0.5">
           <Wordmark size="sm" />
         </Link>
-        <ThemeToggle className="ml-auto" />
+        <span className="ml-auto flex items-center" data-tour="help">
+          <IconButton
+            onClick={onReplayTour}
+            aria-label="Take the tour again"
+            title="Take the tour again"
+          >
+            <HelpCircle className="size-4" />
+          </IconButton>
+          <ThemeToggle />
+        </span>
       </div>
 
       <div className="min-w-0 px-3 pb-2">
@@ -90,7 +102,7 @@ export function MapSidebar({
         }}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" data-tour="list">
         {KIND_LEGEND.map(({ kind, label, hint }) => {
           const list = grouped.get(kind) ?? [];
           if (!list.length) return null;

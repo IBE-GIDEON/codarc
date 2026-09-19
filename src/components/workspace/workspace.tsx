@@ -6,9 +6,9 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import type { RepoMap } from "@/lib/graph";
 import { Canvas, type CanvasHandle } from "@/components/workspace/canvas";
 import { matchNodes } from "@/components/workspace/search";
+import { Tour, type TourStep } from "@/components/workspace/tour";
 import { Inspector } from "@/components/workspace/inspector";
 import { MapSidebar } from "@/components/workspace/map-sidebar";
-import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 
@@ -110,52 +110,13 @@ function Failure({
   );
 }
 
-/** First-run explainer. Most people here have never seen their code drawn. */
-function Primer({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <div className="pointer-events-auto w-[320px] rounded-xl bg-raised p-4 shadow-popover">
-      <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-primary">
-        What am I looking at?
-      </h2>
-      <p className="mt-1.5 text-[12.5px] leading-[1.55] text-secondary">
-        Every box is one real piece of your app. Lines run left to right, in the
-        order a request travels.
-      </p>
-      <div className="mt-3 space-y-2">
-        {KIND_LEGEND.map(({ kind, label, hint }) => (
-          <div key={kind} className="flex gap-2.5">
-            <span
-              className="mt-[5px] h-3 w-[4px] shrink-0 rounded-full"
-              style={{ background: KIND_COLOR[kind] }}
-            />
-            <div>
-              <div className="text-[12.5px] font-medium text-primary">
-                {label}
-              </div>
-              <div className="text-[12px] leading-[1.45] text-tertiary">
-                {hint}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <Button
-        variant="secondary"
-        size="md"
-        className="mt-3.5 w-full"
-        onClick={onDismiss}
-      >
-        Got it
-      </Button>
-    </div>
-  );
-}
-
 export function Workspace({ owner, repo }: { owner: string; repo: string }) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const canvasRef = React.useRef<CanvasHandle>(null);
-  const [primer, setPrimer] = React.useState(false);
+  const [tour, setTour] = React.useState(false);
+  // Bumped on every replay so <Tour> remounts and starts from step one.
+  const [tourRun, setTourRun] = React.useState(0);
   const [nonce, setNonce] = React.useState(0);
   const [result, setResult] = React.useState<Result | null>(null);
 
@@ -181,7 +142,7 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
         }
         setResult({ key, phase: "ready", map: body as RepoMap });
         try {
-          if (!localStorage.getItem("codarc-primer-seen")) setPrimer(true);
+          if (!localStorage.getItem("codarc-tour-done")) setTour(true);
         } catch {}
       })
       .catch(() => {
@@ -201,13 +162,6 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
 
   const state: Result | { phase: "loading" } =
     result?.key === key ? result : { phase: "loading" };
-
-  function dismissPrimer() {
-    setPrimer(false);
-    try {
-      localStorage.setItem("codarc-primer-seen", "1");
-    } catch {}
-  }
 
   if (state.phase === "loading") {
     return (
@@ -238,6 +192,101 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
     canvasRef.current?.focusNode(id);
   }
 
+  // Something worth pointing at during the tour: prefer a door, since that's
+  // the kind people recognise fastest.
+  const demoNode =
+    map.nodes.find((n) => n.kind === "door") ?? map.nodes[0] ?? null;
+
+  const steps: TourStep[] = [
+    {
+      id: "welcome",
+      placement: "center",
+      title: "This is your app, drawn out",
+      body: "Every box below is a real piece of the app you built. Give me a minute and I'll show you what you're looking at and what you can do with it.",
+      before: () => {
+        setQuery("");
+        setSelectedId(null);
+      },
+    },
+    {
+      id: "colours",
+      target: "list",
+      placement: "right",
+      title: "Four kinds of box",
+      body: "Green is a screen someone looks at. Purple is a door where a request arrives. Blue is the logic doing the work. Amber is the information you store.",
+    },
+    {
+      id: "canvas",
+      target: "canvas",
+      placement: "left",
+      title: "Move around freely",
+      body: "Drag the background to pan, scroll to move, and hold Ctrl while scrolling to zoom. Drag any box to put it where it makes sense to you — your arrangement is remembered.",
+    },
+    {
+      id: "node",
+      target: "node",
+      placement: "right",
+      title: "Click a box to open it",
+      body: "Clicking any box selects it and lights up everything it's connected to, so you can see what depends on what.",
+      before: () => {
+        if (demoNode) pick(demoNode.id);
+      },
+    },
+    {
+      id: "inspector",
+      target: "inspector",
+      placement: "left",
+      title: "What this piece actually does",
+      body: "A plain description first, then the exact file it lives in and the other files it reaches into. Click the file name to read it on GitHub.",
+      before: () => {
+        if (demoNode) setSelectedId(demoNode.id);
+      },
+    },
+    {
+      id: "change",
+      target: "change",
+      placement: "left",
+      title: "Say what you want different",
+      body: "Describe the change the way you'd explain it to a person. You never have to say which file — Codarc already knows which one this box came from.",
+      before: () => {
+        if (demoNode) setSelectedId(demoNode.id);
+      },
+    },
+    {
+      id: "search",
+      target: "search",
+      placement: "right",
+      title: "Find anything fast",
+      body: "Press / or Ctrl-K and type an ordinary word like login, payment or user. Matches get an amber outline on the map and everything else fades back.",
+      before: () => {
+        setSelectedId(null);
+        setQuery("");
+      },
+    },
+    {
+      id: "list",
+      target: "list",
+      placement: "right",
+      title: "The same pieces, as a list",
+      body: "Click any line and the map flies to it. A count like 16/23 means the map is showing the 16 busiest so it stays readable — nothing is lost, it's all still here.",
+    },
+    {
+      id: "help",
+      target: "help",
+      placement: "bottom",
+      title: "That's the whole thing",
+      body: "Press this question mark any time to walk through it again. Go and click something.",
+    },
+  ];
+
+  function endTour() {
+    setTour(false);
+    setSelectedId(null);
+    try {
+      localStorage.setItem("codarc-tour-done", "1");
+    } catch {}
+  }
+
   return (
     <div className="flex h-dvh overflow-hidden">
       <MapSidebar
@@ -247,6 +296,10 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
         query={query}
         onQueryChange={setQuery}
         matches={matches}
+        onReplayTour={() => {
+          setTourRun((r) => r + 1);
+          setTour(true);
+        }}
       />
 
       <main className="relative min-w-0 flex-1">
@@ -281,7 +334,6 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
         )}
 
         <div className="pointer-events-none absolute top-3 right-3 bottom-3 flex flex-col items-end gap-3">
-          {primer && <Primer onDismiss={dismissPrimer} />}
           {selected && (
             <Inspector
               key={selected.id}
@@ -291,6 +343,8 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
             />
           )}
         </div>
+
+        <Tour key={tourRun} steps={steps} open={tour} onClose={endTour} />
       </main>
     </div>
   );

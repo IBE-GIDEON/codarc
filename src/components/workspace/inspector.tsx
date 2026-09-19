@@ -31,7 +31,10 @@ export function Inspector({
   const href = `https://github.com/${map.owner}/${map.repo}/blob/${map.branch}/${node.file}#L${node.line}`;
 
   return (
-    <aside className="pointer-events-auto flex max-h-full w-[340px] flex-col overflow-hidden rounded-xl bg-raised shadow-popover">
+    <aside
+      data-tour="inspector"
+      className="pointer-events-auto flex max-h-full w-[340px] flex-col overflow-hidden rounded-xl bg-raised shadow-popover"
+    >
       <div className="flex items-start gap-2.5 px-4 pt-4">
         <span
           className="mt-0.5 h-8 w-[6px] shrink-0 rounded-full"
@@ -94,7 +97,7 @@ export function Inspector({
           </div>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5" data-tour="change">
           <Label>Change it</Label>
           <Textarea
             rows={3}

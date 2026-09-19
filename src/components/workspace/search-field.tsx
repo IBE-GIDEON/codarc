@@ -39,7 +39,7 @@ export function SearchField({
   const empty = count === 0;
 
   return (
-    <div className="px-2 pb-2">
+    <div className="px-2 pb-2" data-tour="search">
       <div
         className={cn(
           "flex h-8 items-center gap-1.5 rounded-md bg-page px-2",

@@ -245,6 +245,7 @@ export function Canvas({
   return (
     <div
       ref={hostRef}
+      data-tour="canvas"
       className="canvas-grid relative size-full touch-none overflow-hidden"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -307,6 +308,7 @@ export function Canvas({
           return (
             <div
               key={n.id}
+              data-tour={selected ? "node" : undefined}
               role="button"
               tabIndex={0}
               onPointerDown={(e) => {
