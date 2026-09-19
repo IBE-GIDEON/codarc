@@ -72,23 +72,29 @@ export function Inspector({
   // the draft resets on its own.
   const [draft, setDraft] = React.useState("");
   const [phase, setPhase] = React.useState<Phase>({ at: "idle" });
-  const [connected, setConnected] = React.useState(false);
+  const [caps, setCaps] = React.useState({
+    canDraft: true,
+    canSend: true,
+    connected: false,
+  });
   const legend = KIND_LEGEND.find((l) => l.kind === node.kind);
 
-  // The install cookie is httpOnly, so whether GitHub is connected has to
-  // come from the server.
+  // What this deployment can do lives on the server — the install cookie is
+  // httpOnly and the keys obviously aren't public.
   React.useEffect(() => {
     let live = true;
-    fetch("/api/github/status")
+    fetch("/api/capabilities")
       .then((r) => r.json())
       .then((d) => {
-        if (live) setConnected(Boolean(d.connected));
+        if (live) setCaps(d);
       })
       .catch(() => {});
     return () => {
       live = false;
     };
   }, []);
+
+  const connected = caps.connected;
 
   const here =
     typeof window === "undefined"
@@ -235,7 +241,17 @@ export function Inspector({
         <div className="mt-5" data-tour="change">
           <Label>Change it</Label>
 
-          {phase.at === "sent" ? (
+          {!caps.canDraft ? (
+            <div className="rounded-sm bg-c-gray-bg p-3">
+              <p className="text-[12.5px] leading-[1.55] text-primary">
+                Changing your app from here isn&apos;t switched on yet.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
+                Reading and mapping works today. Making the change for you is
+                the next thing being turned on.
+              </p>
+            </div>
+          ) : phase.at === "sent" ? (
             <div className="rounded-sm bg-c-green-bg p-3">
               <p className="text-[13px] leading-[1.55] text-primary">
                 Sent. It&apos;s waiting for you on GitHub as pull request #
@@ -310,7 +326,13 @@ export function Inspector({
       </div>
 
       <div className="space-y-2 px-4 pt-3 pb-4">
-        {phase.at === "sent" ? (
+        {!caps.canDraft ? (
+          <a href={href} target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="lg" className="w-full">
+              <FileCode2 className="size-3.5" /> Read this on GitHub
+            </Button>
+          </a>
+        ) : phase.at === "sent" ? (
           <>
             <a href={phase.url} target="_blank" rel="noreferrer">
               <Button variant="primary" size="lg" className="w-full">
