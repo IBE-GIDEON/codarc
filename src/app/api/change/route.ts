@@ -2,11 +2,24 @@ import { NextResponse } from "next/server";
 import { ChangeError, holdProposal, proposeChange } from "@/lib/change";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
+import { isOwner } from "@/lib/owner";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
+  // Every draft spends real money, so the lock is checked before anything
+  // else — including before we read the body.
+  if (!(await isOwner())) {
+    return NextResponse.json(
+      {
+        error: "Changing your app isn't switched on yet",
+        hint: "Reading and mapping works today. Making the change for you is coming.",
+      },
+      { status: 403 },
+    );
+  }
+
   let body: {
     repo?: string;
     branch?: string;

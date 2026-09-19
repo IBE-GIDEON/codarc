@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isConfigured } from "@/lib/github-app";
+import { isOwner } from "@/lib/owner";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ export const runtime = "nodejs";
 export async function GET() {
   const installation = (await cookies()).get("codarc-installation")?.value;
   return NextResponse.json({
-    canDraft: Boolean(process.env.ANTHROPIC_API_KEY),
+    canDraft: Boolean(process.env.ANTHROPIC_API_KEY) && (await isOwner()),
     canSend: isConfigured(),
     connected: Boolean(installation),
   });

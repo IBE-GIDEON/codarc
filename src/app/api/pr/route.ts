@@ -8,11 +8,22 @@ import {
   isConfigured,
   openPullRequest,
 } from "@/lib/github-app";
+import { isOwner } from "@/lib/owner";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  if (!(await isOwner())) {
+    return NextResponse.json(
+      {
+        error: "Sending changes isn't switched on yet",
+        hint: "Reading and mapping works today.",
+      },
+      { status: 403 },
+    );
+  }
+
   if (!isConfigured()) {
     return NextResponse.json(
       {
