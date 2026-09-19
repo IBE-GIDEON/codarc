@@ -49,18 +49,16 @@ Leave everything else alone. Under **Where can this app be installed**, pick
 
 Click **Create GitHub App**.
 
-## 3. Collect four things
+## 3. Collect two things
 
-You're now on the app's settings page.
+You're now on the app's settings page. Codarc signs in **as the app**, not as
+you, so it never needs the client secret — ignore that section.
 
 1. **App ID** — near the top, a number like `1234567`
-2. **Client ID** — just below it, starts with `Iv23...`
-3. **Client secret** — click *Generate a new client secret*, copy it now
-   (GitHub only shows it once)
-4. **Private key** — scroll to the bottom, click *Generate a private key*.
+2. **Private key** — scroll to the bottom, click *Generate a private key*.
    A `.pem` file downloads.
 
-## 4. Put them in `.env.local`
+## 4. Put them in your environment
 
 In the Codarc folder, open `.env.local` (make it if it isn't there) and add:
 
@@ -86,7 +84,7 @@ want to try.
 
 ## 6. Add the keys to your host
 
-Put the same four values into your hosting provider's environment variables
+Put those two values into your hosting provider's environment variables
 (on Vercel: Project → Settings → Environment Variables), along with:
 
 ```
