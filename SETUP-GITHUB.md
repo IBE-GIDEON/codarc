@@ -27,8 +27,12 @@ Swap these for a custom domain later if you get one.
 
 Then:
 
-- **Tick** "Request user authorization (OAuth) during installation"
-- **Untick** "Active" under Webhook (we don't use webhooks)
+- **Tick** "Request user authorization (OAuth) during installation".
+  This is what makes GitHub send you back to the page you came from.
+- **Untick** "Active" under Webhook. It's on by default and the URL box is
+  required, so the form won't submit until you untick it.
+- **Leave Setup URL empty.** GitHub greys it out once OAuth is ticked — that's
+  correct, the Redirect URI above handles it.
 
 ## 2. Set what it's allowed to do
 
