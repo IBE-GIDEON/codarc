@@ -76,12 +76,14 @@ export function Inspector({
   const [caps, setCaps] = React.useState<{
     signedIn: boolean;
     canSignIn: boolean;
+    hasPlan: boolean;
     canDraft: boolean;
     canSend: boolean;
     connected: boolean;
   }>({
     signedIn: true,
     canSignIn: true,
+    hasPlan: true,
     canDraft: true,
     canSend: true,
     connected: false,
@@ -260,6 +262,16 @@ export function Inspector({
                 who you are before it touches your code.
               </p>
             </div>
+          ) : !caps.hasPlan ? (
+            <div className="rounded-sm bg-c-yellow-bg p-3">
+              <p className="text-[12.5px] leading-[1.55] text-primary">
+                Looking is free. Changing needs a plan.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
+                Codarc reads your real code and writes a real change, so from
+                here on it costs money to run.
+              </p>
+            </div>
           ) : !caps.canDraft ? (
             <div className="rounded-sm bg-c-gray-bg p-3">
               <p className="text-[12.5px] leading-[1.55] text-primary">
@@ -365,6 +377,12 @@ export function Inspector({
                   <FileCode2 className="size-3.5" /> Read this on GitHub
                 </>
               )}
+            </Button>
+          </a>
+        ) : !caps.hasPlan ? (
+          <a href={`/choose?back=${encodeURIComponent(here)}`}>
+            <Button variant="primary" size="lg" className="w-full">
+              See the plans <ArrowRight className="size-3.5" />
             </Button>
           </a>
         ) : !caps.canDraft ? (

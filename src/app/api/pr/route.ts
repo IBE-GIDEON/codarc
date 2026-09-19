@@ -8,8 +8,8 @@ import {
   isConfigured,
   openPullRequest,
 } from "@/lib/github-app";
-import { isOwner } from "@/lib/owner";
 import { currentUser } from "@/lib/session";
+import { hasActivePlan } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,13 +25,14 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await isOwner())) {
+  if (!(await hasActivePlan(await currentUser()))) {
     return NextResponse.json(
       {
-        error: "Sending changes isn't switched on yet",
-        hint: "Reading and mapping works today.",
+        error: "You need a plan to send changes",
+        hint: "Looking at your map is free. Changing code is what the plan pays for.",
+        needsPlan: true,
       },
-      { status: 403 },
+      { status: 402 },
     );
   }
 

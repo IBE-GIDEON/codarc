@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { ChangeError, holdProposal, proposeChange } from "@/lib/change";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
-import { isOwner } from "@/lib/owner";
 import { currentUser } from "@/lib/session";
+import { hasActivePlan } from "@/lib/billing";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -21,13 +21,14 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await isOwner())) {
+  if (!(await hasActivePlan(await currentUser()))) {
     return NextResponse.json(
       {
-        error: "Changing your app isn't switched on yet",
-        hint: "Reading and mapping works today. Making the change for you is coming.",
+        error: "You need a plan to change things",
+        hint: "Looking at your map is free. Changing code is what the plan pays for.",
+        needsPlan: true,
       },
-      { status: 403 },
+      { status: 402 },
     );
   }
 
