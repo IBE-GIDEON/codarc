@@ -29,15 +29,35 @@ Use semantic tokens only — `bg-page`, `bg-hover`, `text-secondary`,
 `shadow-popover`, `rounded-sm`. Never hard-code a hex, radius, or shadow in a
 component.
 
-Ruled out: gradients, glassmorphism, pill badges, colored shadows, entrance
-animations, more than one primary button per view.
+**Brand vs. chrome.** Notion governs the app chrome; the brand governs the
+canvas and the marketing pages. So gradients, glows and the saturated triad are
+allowed in `src/components/landing/*` and on the canvas, and nowhere else.
+Everything ruled out below refers to the chrome: glassmorphism, pill badges,
+coloured shadows, entrance animations, more than one primary button per view.
+
+Brand triad (sampled from the logo and backdrop art) doubles as the canvas
+legend: purple = doors, blue = logic, amber = data, green = screens.
+
+## Writing for the customer
+
+Codarc's users mostly **cannot read code** — they shipped an app with AI and
+have never opened the files. Every string that reaches the screen says what a
+thing *does*, not what it is called. "Where a request arrives from the outside
+world", not "HTTP route handler". `src/lib/humanize.ts` is where code-shaped
+names become sentences; put new copy through it rather than inlining jargon.
 
 ## Layout
 
 `src/app/globals.css` — all tokens
+`src/lib/graph.ts` — RepoMap / GraphNode types shared by analyzer and canvas
+`src/lib/github.ts` — read-only GitHub fetching, typed errors with plain hints
+`src/lib/analyze.ts` — the engine: parse, build the graph, lay it out
+`src/lib/humanize.ts` — code-shaped names to plain English
+`src/app/api/map/route.ts` — GET /api/map?repo=owner/name
+`src/app/r/[owner]/[repo]` — the workspace
+`src/components/workspace/*` — canvas, inspector, sidebar
+`src/components/landing/*` — marketing only; brand rules apply here
 `src/components/ui/*` — primitives (button, input, callout)
-`src/components/page-chrome.tsx` — TopBar, Column, PageHeader, Block, H2, P
-`src/components/sidebar.tsx` — 240px nav
 `src/lib/cn.ts` — `cn()` = clsx + tailwind-merge
 
 <!-- BEGIN:nextjs-agent-rules -->

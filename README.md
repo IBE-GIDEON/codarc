@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Codarc
 
-## Getting Started
+Point it at a repository and it draws the architecture. Click a box, say what
+should change, get a pull request.
 
-First, run the development server:
+Built for solo founders who shipped an app with AI and have never opened the
+code. Every label on screen says what a thing *does*, not what it is called.
+
+---
+
+## Running it
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000 and paste a public GitHub repository — no
+account needed. Try `tiangolo/full-stack-fastapi-template` or
+`vercel/ai-chatbot`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build && npm run start   # production
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## What it reads today
 
-## Learn More
+| Stack | Finds |
+|---|---|
+| FastAPI | routes and their router prefixes, Pydantic/SQLModel shapes |
+| Flask | `@route` decorators with methods, blueprint prefixes |
+| Django + DRF | `urlpatterns`, `router.register`, models, serializers |
+| Next.js | App Router pages and route handlers, Pages Router API |
+| Express / Hono | `app.get(...)` style routes |
+| Prisma · Drizzle · Mongoose · TypeORM · Zod | data shapes |
 
-To learn more about Next.js, take a look at the following resources:
+Everything is heuristic — regex and an import graph, no full AST parse. It is
+deliberately tuned to be *readable* rather than exhaustive: the canvas shows
+the busiest pieces and the sidebar says how many were left out.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configuration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Copy `.env.example` to `.env.local`.
 
-## Deploy on Vercel
+- `GITHUB_TOKEN` — optional. Anonymous GitHub API access is capped at 60
+  requests an hour per IP, and each mapped repository costs two. A token with
+  no scopes (public read) lifts that to 5,000. Set this before showing anyone.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploying
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Works on any Node host. On Vercel, note that mapping a large repository can run
+20–40 seconds, so the function needs a 60s limit — that means the Pro plan, or
+lower `MAX_FILES` in `src/lib/analyze.ts`.
+
+## What is not built yet
+
+- **Writing changes.** The inspector accepts a description and then stops at a
+  "Connect GitHub" wall. The GitHub App install, the agent that edits files,
+  and PR creation are the next milestone.
+- **Private repositories**, for the same reason.
+- **Accounts and billing.** Pricing is on the landing page; nothing charges.
+
+## Notes
+
+`CLAUDE.md` has the working rules. `DESIGN.md` is the design language — read it
+before touching UI. `/design` renders it as a live page.

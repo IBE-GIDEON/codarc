@@ -60,9 +60,11 @@ export function Nav() {
             >
               Log in
             </a>
-            <Button variant="primary" size="lg" className="shrink-0">
-              Try Codarc
-            </Button>
+            <a href="#start" className="shrink-0">
+              <Button variant="primary" size="lg">
+                Try Codarc
+              </Button>
+            </a>
           </div>
         </div>
       </Container>

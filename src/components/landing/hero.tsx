@@ -32,12 +32,16 @@ export function Hero() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
-            <Button variant="primary" size="lg" className="h-10 px-4 text-[15px]">
-              Try Codarc <ArrowRight className="size-4" />
-            </Button>
-            <Button variant="secondary" size="lg" className="h-10 px-4 text-[15px]">
-              See how it works
-            </Button>
+            <a href="#start">
+              <Button variant="primary" size="lg" className="h-10 px-4 text-[15px]">
+                Try Codarc <ArrowRight className="size-4" />
+              </Button>
+            </a>
+            <a href="#how">
+              <Button variant="secondary" size="lg" className="h-10 px-4 text-[15px]">
+                See how it works
+              </Button>
+            </a>
           </div>
 
           <p className="mt-4 text-[13px] text-tertiary">

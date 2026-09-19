@@ -1,7 +1,6 @@
-import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/logo";
-import { Button } from "@/components/ui/button";
 import { Container, Section } from "@/components/landing/shared";
+import { RepoInput } from "@/components/landing/repo-input";
 
 const cols = [
   {
@@ -15,7 +14,7 @@ const cols = [
 export function Closing() {
   return (
     <>
-      <Section className="relative overflow-hidden">
+      <Section id="start" className="relative overflow-hidden scroll-mt-16">
         <div
           aria-hidden
           className="pointer-events-none absolute top-1/2 left-1/2 h-[380px] w-[820px] -translate-x-1/2 -translate-y-1/2 opacity-50 blur-[90px] dark:opacity-35"
@@ -34,19 +33,8 @@ export function Closing() {
               you want the pull request.
             </p>
 
-            <div className="mx-auto mt-8 flex max-w-[520px] flex-col gap-2 sm:flex-row">
-              <input
-                placeholder="github.com/you/your-repo"
-                aria-label="Repository URL"
-                className="h-11 flex-1 rounded-md bg-page px-3.5 font-mono text-[13.5px] text-primary shadow-[inset_0_0_0_1px_var(--border)] placeholder:text-tertiary"
-              />
-              <Button
-                variant="primary"
-                size="lg"
-                className="h-11 shrink-0 px-4 text-[15px]"
-              >
-                Map it <ArrowRight className="size-4" />
-              </Button>
+            <div className="mt-8">
+              <RepoInput />
             </div>
           </div>
         </Container>
