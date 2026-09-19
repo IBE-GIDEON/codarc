@@ -10,13 +10,20 @@ type Caps = {
   canSignIn: boolean;
 };
 
+/** Forwards `?as=customer` so the owner can preview their own paywall. */
+function capabilitiesUrl() {
+  if (typeof window === "undefined") return "/api/capabilities";
+  const as = new URLSearchParams(window.location.search).get("as");
+  return as ? `/api/capabilities?as=${encodeURIComponent(as)}` : "/api/capabilities";
+}
+
 /** Sits at the bottom of the sidebar: who you are, or a way to become someone. */
 export function Account() {
   const [caps, setCaps] = React.useState<Caps | null>(null);
 
   React.useEffect(() => {
     let live = true;
-    fetch("/api/capabilities")
+    fetch(capabilitiesUrl())
       .then((r) => r.json())
       .then((d) => {
         if (live) setCaps(d);

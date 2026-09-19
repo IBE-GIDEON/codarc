@@ -14,10 +14,15 @@ export const runtime = "nodejs";
  * The UI asks rather than assuming, so it can say "choose a plan" instead of
  * letting someone type a request that was always going to be refused.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const installation = (await cookies()).get("codarc-installation")?.value;
   const user = await currentUser();
-  const paid = await hasActivePlan(user);
+
+  // `?as=customer` lets the owner look at their own paywall without signing
+  // out. It only dresses the UI down — the real checks still run server-side.
+  const asCustomer =
+    new URL(request.url).searchParams.get("as") === "customer";
+  const paid = asCustomer ? false : await hasActivePlan(user);
 
   return NextResponse.json({
     user: user && {

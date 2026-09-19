@@ -31,6 +31,13 @@ type Phase =
     }
   | { at: "sent"; url: string; number: number };
 
+/** Forwards `?as=customer` so the owner can preview their own paywall. */
+function capabilitiesUrl() {
+  if (typeof window === "undefined") return "/api/capabilities";
+  const as = new URLSearchParams(window.location.search).get("as");
+  return as ? `/api/capabilities?as=${encodeURIComponent(as)}` : "/api/capabilities";
+}
+
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-1.5 text-[11px] font-medium text-tertiary">{children}</div>
@@ -94,7 +101,7 @@ export function Inspector({
   // httpOnly and the keys obviously aren't public.
   React.useEffect(() => {
     let live = true;
-    fetch("/api/capabilities")
+    fetch(capabilitiesUrl())
       .then((r) => r.json())
       .then((d) => {
         if (live) setCaps(d);
