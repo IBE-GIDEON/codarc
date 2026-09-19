@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { env, hasEnv } from "@/lib/env";
+import { env } from "@/lib/env";
 
 /**
  * The `state` GitHub hands back carries where to return to, plus a nonce we

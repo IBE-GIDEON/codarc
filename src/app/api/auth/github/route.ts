@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { STATE_COOKIE, packState } from "@/lib/oauth";
 import { canSignIn } from "@/lib/session";
-import { env, hasEnv } from "@/lib/env";
+import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
 

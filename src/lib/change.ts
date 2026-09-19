@@ -4,7 +4,7 @@ import { z } from "zod";
 import { fetchFiles } from "@/lib/github";
 import { countChanges, lineDiff, type DiffHunk } from "@/lib/diff";
 import type { GraphNode } from "@/lib/graph";
-import { env, hasEnv } from "@/lib/env";
+import { hasEnv } from "@/lib/env";
 
 export class ChangeError extends Error {
   constructor(

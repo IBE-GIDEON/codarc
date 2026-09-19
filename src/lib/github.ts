@@ -1,4 +1,4 @@
-import { env, hasEnv } from "@/lib/env";
+import { env } from "@/lib/env";
 /** Read-only GitHub access for public repositories. */
 
 export class RepoError extends Error {

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { isConfigured } from "@/lib/github-app";
 import { isOwner } from "@/lib/owner";
 import { canSignIn, currentUser } from "@/lib/session";
-import { env, hasEnv } from "@/lib/env";
+import { hasEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 

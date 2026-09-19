@@ -101,13 +101,15 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <Button
-                variant={p.featured ? "primary" : "secondary"}
-                size="lg"
-                className="mt-7 h-10 w-full text-[14px]"
-              >
-                {p.cta}
-              </Button>
+              <a href={`/choose?plan=${p.name.toLowerCase()}`} className="mt-7 block">
+                <Button
+                  variant={p.featured ? "primary" : "secondary"}
+                  size="lg"
+                  className="h-10 w-full text-[14px]"
+                >
+                  {p.cta}
+                </Button>
+              </a>
             </div>
             </Reveal>
           ))}
