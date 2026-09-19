@@ -35,7 +35,7 @@ function privateKey(): string {
   if (!inline) {
     throw new GithubAppError(
       "Codarc isn't connected to GitHub yet",
-      "The server is missing its GitHub App keys. See SETUP-GITHUB.md.",
+      "The server is missing its GitHub App keys. Add them where this is hosted, then redeploy. See SETUP-GITHUB.md.",
       503,
     );
   }

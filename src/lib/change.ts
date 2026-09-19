@@ -126,7 +126,7 @@ export async function proposeChange({
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new ChangeError(
       "Codarc isn't set up to write changes yet",
-      "The server is missing its ANTHROPIC_API_KEY. Add it to .env.local and restart.",
+      "The server is missing its ANTHROPIC_API_KEY. Add it where this is hosted, then redeploy.",
       503,
     );
   }

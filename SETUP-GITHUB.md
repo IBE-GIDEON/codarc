@@ -17,11 +17,10 @@ Fill in:
 | Field | What to put |
 |---|---|
 | GitHub App name | `Codarc` (if taken, `Codarc Dev` or add your name) |
-| Homepage URL | `https://YOUR-DOMAIN` |
-| Callback URL | `https://YOUR-DOMAIN/api/github/callback` |
+| Homepage URL | `https://codarc-rho.vercel.app` |
+| Callback URL | `https://codarc-rho.vercel.app/api/github/callback` |
 
-Replace `YOUR-DOMAIN` with your live address, e.g. `codarc.dev` or
-`codarc.vercel.app`. **Deploy first so you know what it is.**
+Swap these for a custom domain later if you get one.
 
 > You can add a second callback URL later (`http://localhost:3001/api/github/callback`)
 > if you ever want to test on your laptop. GitHub allows up to 10.
@@ -96,8 +95,9 @@ work.
 
 ---
 
-## Heads up on hosting
+## Hosting note
 
-Reading a big repository takes 20–40 seconds. Vercel's free plan kills
-functions at 10 seconds, so you need the **Pro** plan — or lower `MAX_FILES`
-in `src/lib/analyze.ts` so it reads fewer files.
+Reading a repository takes about 4 seconds on Vercel (much faster than on a
+laptop, because their servers sit close to GitHub), so the free plan's 10
+second limit is fine for now. Drafting a change takes longer — if you see
+timeouts there, that's when you need the Pro plan.
