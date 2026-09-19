@@ -1,15 +1,53 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, FileCode2, Lock, X } from "lucide-react";
+import {
+  ArrowRight,
+  FileCode2,
+  GitPullRequest,
+  Loader2,
+  Lock,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import type { GraphNode, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
+import { DiffView, type ProposalView } from "@/components/workspace/diff-view";
 import { Button, IconButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+
+type Phase =
+  | { at: "idle" }
+  | { at: "drafting" }
+  | { at: "failed"; error: string; hint: string }
+  | { at: "ready"; proposal: ProposalView };
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-1.5 text-[11px] font-medium text-tertiary">{children}</div>
+  );
+}
+
+const WAITING = [
+  "Reading the file this came from",
+  "Working out the smallest change",
+  "Checking it fits the code around it",
+];
+
+function Drafting() {
+  const [i, setI] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(
+      () => setI((n) => Math.min(n + 1, WAITING.length - 1)),
+      4200,
+    );
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="flex items-center gap-2 rounded-sm bg-sunken px-3 py-2.5">
+      <Loader2 className="size-3.5 shrink-0 animate-spin text-accent" />
+      <span className="text-[12.5px] text-secondary">{WAITING[i]}…</span>
+    </div>
   );
 }
 
@@ -25,15 +63,47 @@ export function Inspector({
   // The parent keys this by node id, so selecting another node remounts and
   // the draft resets on its own.
   const [draft, setDraft] = React.useState("");
-  const [asked, setAsked] = React.useState(false);
+  const [phase, setPhase] = React.useState<Phase>({ at: "idle" });
   const legend = KIND_LEGEND.find((l) => l.kind === node.kind);
 
   const href = `https://github.com/${map.owner}/${map.repo}/blob/${map.branch}/${node.file}#L${node.line}`;
 
+  async function draftChange() {
+    setPhase({ at: "drafting" });
+    try {
+      const res = await fetch("/api/change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          repo: `${map.owner}/${map.repo}`,
+          branch: map.branch,
+          node,
+          instruction: draft,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setPhase({
+          at: "failed",
+          error: body.error ?? "That didn't work",
+          hint: body.hint ?? "Try again.",
+        });
+        return;
+      }
+      setPhase({ at: "ready", proposal: body as ProposalView });
+    } catch {
+      setPhase({
+        at: "failed",
+        error: "We couldn't reach Codarc",
+        hint: "Check your connection and try again.",
+      });
+    }
+  }
+
   return (
     <aside
       data-tour="inspector"
-      className="pointer-events-auto flex max-h-full w-[340px] flex-col overflow-hidden rounded-xl bg-raised shadow-popover"
+      className="pointer-events-auto flex max-h-full w-[368px] flex-col overflow-hidden rounded-xl bg-raised shadow-popover"
     >
       <div className="flex items-start gap-2.5 px-4 pt-4">
         <span
@@ -81,7 +151,7 @@ export function Inspector({
           </a>
         </div>
 
-        {node.related.length > 0 && (
+        {node.related.length > 0 && phase.at === "idle" && (
           <div className="mt-4">
             <Label>What it reaches into</Label>
             <div className="space-y-px">
@@ -99,44 +169,107 @@ export function Inspector({
 
         <div className="mt-5" data-tour="change">
           <Label>Change it</Label>
-          <Textarea
-            rows={3}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Say what this should do differently, in your own words."
-            className="text-[13px]"
-          />
-          <p className="mt-1.5 text-[11.5px] leading-[1.45] text-tertiary">
-            You never have to say <em>where</em> — Codarc already knows this is{" "}
-            <span className="font-mono">{node.file.split("/").pop()}</span>.
-          </p>
+
+          {phase.at === "ready" ? (
+            <div className="space-y-3">
+              <div className="rounded-sm bg-c-green-bg p-3">
+                <p className="text-[13px] leading-[1.55] text-primary">
+                  {phase.proposal.summary}
+                </p>
+                <p className="mt-1.5 font-mono text-[11px] text-c-green">
+                  +{phase.proposal.added} −{phase.proposal.removed} across{" "}
+                  {phase.proposal.files.length}{" "}
+                  {phase.proposal.files.length === 1 ? "file" : "files"}
+                </p>
+              </div>
+
+              {phase.proposal.caveat && (
+                <div className="rounded-sm bg-c-yellow-bg p-3 text-[12.5px] leading-[1.5] text-primary">
+                  {phase.proposal.caveat}
+                </div>
+              )}
+
+              <DiffView proposal={phase.proposal} />
+            </div>
+          ) : phase.at === "drafting" ? (
+            <Drafting />
+          ) : (
+            <>
+              <Textarea
+                rows={3}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Say what this should do differently, in your own words."
+                className="text-[13px]"
+              />
+              {phase.at === "failed" ? (
+                <div className="mt-2 rounded-sm bg-c-red-bg p-2.5">
+                  <div className="text-[12.5px] font-medium text-primary">
+                    {phase.error}
+                  </div>
+                  <p className="mt-0.5 text-[12px] leading-[1.45] text-secondary">
+                    {phase.hint}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1.5 text-[11.5px] leading-[1.45] text-tertiary">
+                  You never have to say <em>where</em> — Codarc already knows
+                  this is{" "}
+                  <span className="font-mono">
+                    {node.file.split("/").pop()}
+                  </span>
+                  .
+                </p>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      <div className="px-4 pt-3 pb-4">
-        {asked ? (
-          <div className="rounded-sm bg-c-blue-bg p-3">
-            <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-primary">
-              <Lock className="size-3.5" /> Connect GitHub to continue
+      <div className="space-y-2 px-4 pt-3 pb-4">
+        {phase.at === "ready" ? (
+          <>
+            <div className="rounded-sm bg-c-blue-bg p-3">
+              <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-primary">
+                <Lock className="size-3.5" /> Connect GitHub to send this
+              </div>
+              <p className="mt-1 text-[12px] leading-[1.5] text-secondary">
+                Nothing has been written. To turn this into a pull request on
+                your repository, Codarc needs your permission to write to it.
+              </p>
+              <Button variant="primary" size="md" className="mt-2.5 w-full">
+                <GitPullRequest className="size-3.5" /> Connect GitHub
+              </Button>
             </div>
-            <p className="mt-1 text-[12px] leading-[1.5] text-secondary">
-              Codarc can read this repository because it&apos;s public. To write
-              the change and open a pull request, it needs your permission on
-              the repository itself.
-            </p>
-            <Button variant="primary" size="md" className="mt-2.5 w-full">
-              Connect GitHub <ArrowRight className="size-3.5" />
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full"
+              onClick={() => {
+                setDraft("");
+                setPhase({ at: "idle" });
+              }}
+            >
+              <RotateCcw className="size-3.5" /> Ask for something else
             </Button>
-          </div>
+          </>
         ) : (
           <Button
             variant="primary"
             size="lg"
             className="w-full"
-            disabled={!draft.trim()}
-            onClick={() => setAsked(true)}
+            disabled={!draft.trim() || phase.at === "drafting"}
+            onClick={draftChange}
           >
-            Draft the change <ArrowRight className="size-3.5" />
+            {phase.at === "drafting" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" /> Working on it
+              </>
+            ) : (
+              <>
+                Draft the change <ArrowRight className="size-3.5" />
+              </>
+            )}
           </Button>
         )}
       </div>

@@ -45,6 +45,9 @@ Copy `.env.example` to `.env.local`.
 - `GITHUB_TOKEN` — optional. Anonymous GitHub API access is capped at 60
   requests an hour per IP, and each mapped repository costs two. A token with
   no scopes (public read) lifts that to 5,000. Set this before showing anyone.
+- `ANTHROPIC_API_KEY` — required for **Draft the change**. Without it the map
+  still works and the button returns a clear "not set up yet" message. Drafting
+  uses Claude Opus 5 at high effort; a typical change is a few cents.
 
 ## Deploying
 
@@ -52,11 +55,22 @@ Works on any Node host. On Vercel, note that mapping a large repository can run
 20–40 seconds, so the function needs a 60s limit — that means the Pro plan, or
 lower `MAX_FILES` in `src/lib/analyze.ts`.
 
+## Drafting a change
+
+Click a box, describe the change in ordinary words, and Codarc reads the file
+behind that box (plus what it imports), asks Claude Opus 5 for the smallest
+correct edit, and shows you a real diff.
+
+Edits come back as exact find/replace pairs and are **applied server-side
+before you see anything**. If any snippet doesn't match exactly once, the whole
+proposal is refused rather than half-applied — a wrong edit shown as a clean
+diff is the worst possible failure here.
+
 ## What is not built yet
 
-- **Writing changes.** The inspector accepts a description and then stops at a
-  "Connect GitHub" wall. The GitHub App install, the agent that edits files,
-  and PR creation are the next milestone.
+- **Sending the change.** Drafting works; turning the diff into a pull request
+  does not. That needs a GitHub App install for write access, and it's the
+  next milestone.
 - **Private repositories**, for the same reason.
 - **Accounts and billing.** Pricing is on the landing page; nothing charges.
 
