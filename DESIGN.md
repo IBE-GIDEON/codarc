@@ -98,11 +98,28 @@ Layered hairline + soft + wide. Never one big blur.
 
 ### Motion
 
+Split by surface, like everything else.
+
+**App chrome — restrained.** You are working in it all day.
+
 - Hover fill: **20ms ease-in**. Fast enough to feel like the surface reacts to
   the cursor rather than animating.
 - Reveal / fade: **100ms ease-in**.
 - Transform / layout: **150–200ms**, `--ease-notion`.
-- Nothing bounces. Nothing springs. No entrance animations on page load.
+- No entrance animations. The one exception is the canvas gliding to a node you
+  picked from the sidebar (**440ms**, `--ease-soft`), and only when that node
+  was actually off screen.
+
+**Marketing — one gesture, used everywhere.** Content settles up into place as
+it scrolls in: 14px rise, 620ms, `--ease-soft`, via `<Reveal>`. Stagger
+siblings by 70–90ms and never past ~240ms total. It fires **once** — nothing
+re-animates on the way back up. Cards use `.lift` (2px, 220ms) on hover.
+
+Nothing bounces. Nothing springs. Nothing overshoots — `--ease-soft` is a pure
+decelerate, so motion reads as weight settling.
+
+Everything above is off entirely under `prefers-reduced-motion: reduce`, which
+is enforced globally in `globals.css`. Content is visible without JavaScript.
 
 ---
 
@@ -121,11 +138,26 @@ it's implemented in `src/components/sidebar.tsx`.
 
 ---
 
+## Identity
+
+The mark and the name travel together as `<Wordmark>` — `sm` (24px mark / 15px
+text) inside the app, `md` (32 / 19) on marketing and in the sidebar header,
+`lg` (36 / 22) where it needs to carry a page on its own. Don't hand-assemble
+the pair; the optical relationship between mark and name is fixed.
+
+The favicon is `src/app/icon.svg` — the mark on near-black, since the chevron
+is white and needs its own ground.
+
 ## What this rules out
 
-No gradient buttons. No glassmorphism. No pill badges. No colored drop shadows.
-No 12px+ radii. No cool grays. No entrance animations. No bordered cards where
-spacing would do. No more than one primary button per view.
+*In the app chrome.* No gradient buttons. No glassmorphism. No pill badges. No
+coloured drop shadows. No 12px+ radii. No cool grays. No entrance animations.
+No bordered cards where spacing would do. No more than one primary button per
+view.
+
+The marketing pages and the canvas are governed by the brand instead, so the
+hero glow, the highlight pill and the scroll reveals are deliberate there and
+wrong anywhere else.
 
 ---
 

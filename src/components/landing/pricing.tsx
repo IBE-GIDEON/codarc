@@ -7,19 +7,20 @@ import {
   Section,
   SectionTitle,
 } from "@/components/landing/shared";
+import { Reveal } from "@/components/landing/reveal";
 import { cn } from "@/lib/cn";
 
 const plans = [
   {
     name: "Solo",
     price: "29",
-    tagline: "For the founder who built it alone.",
+    tagline: "For the founder who built it on their own.",
     features: [
-      "3 repositories",
-      "Unlimited architecture maps",
+      "3 projects",
+      "Redraw your app as often as you like",
       "100 changes a month",
-      "Pull requests to your branches",
-      "Python and TypeScript",
+      "Changes arrive as proposals to approve",
+      "Works with Python and JavaScript apps",
     ],
     cta: "Start with Solo",
     featured: false,
@@ -27,13 +28,13 @@ const plans = [
   {
     name: "Studio",
     price: "79",
-    tagline: "For when someone else has to read it too.",
+    tagline: "For when someone else has to understand it too.",
     features: [
-      "Unlimited repositories",
-      "5 seats, shared maps and comments",
+      "As many projects as you want",
+      "5 people, sharing the same map",
       "Unlimited changes",
-      "Priority runs on large repos",
-      "Handoff exports for contractors",
+      "Faster reading of big projects",
+      "Exports for handing work to a developer",
       "Private deployment on request",
     ],
     cta: "Start with Studio",
@@ -43,25 +44,28 @@ const plans = [
 
 export function Pricing() {
   return (
-    <Section id="pricing">
+    <Section id="pricing" className="scroll-mt-16">
       <Container>
-        <div className="max-w-[680px]">
-          <Eyebrow>Pricing</Eyebrow>
-          <SectionTitle>No free tier. On purpose.</SectionTitle>
-          <Lede>
-            Free tiers mean queues, rate limits, and your repository waiting
-            behind someone else&apos;s abuse budget. Codarc reads real
-            codebases and opens real pull requests, so it costs real money from
-            the first day.
-          </Lede>
+        <div className="max-w-[700px]">
+          <Reveal>
+            <Eyebrow>Pricing</Eyebrow>
+            <SectionTitle>No free tier. On purpose.</SectionTitle>
+          </Reveal>
+          <Reveal delay={80}>
+            <Lede>
+              Free plans mean queues, limits, and your app waiting behind
+              somebody else&apos;s free ride. Codarc reads real projects and
+              writes real changes, so it costs real money from day one.
+            </Lede>
+          </Reveal>
         </div>
 
         <div className="mt-12 grid gap-3 md:grid-cols-2">
-          {plans.map((p) => (
+          {plans.map((p, i) => (
+            <Reveal key={p.name} delay={i * 80} className="flex">
             <div
-              key={p.name}
               className={cn(
-                "flex flex-col rounded-xl p-6",
+                "lift flex flex-1 flex-col rounded-xl p-6",
                 p.featured
                   ? "bg-page shadow-[0_0_0_1.5px_var(--accent),var(--shadow-card)]"
                   : "bg-sunken",
@@ -105,12 +109,15 @@ export function Pricing() {
                 {p.cta}
               </Button>
             </div>
+            </Reveal>
           ))}
         </div>
 
-        <p className="mt-5 text-center text-[13px] text-tertiary">
-          Thirty days, money back, no conversation required.
-        </p>
+        <Reveal delay={140}>
+          <p className="mt-5 text-center text-[13px] text-tertiary">
+            Thirty days, money back, no conversation required.
+          </p>
+        </Reveal>
       </Container>
     </Section>
   );

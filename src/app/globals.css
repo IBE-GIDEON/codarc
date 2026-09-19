@@ -225,6 +225,9 @@
   --container-reading: 708px;
 
   --ease-notion: cubic-bezier(0.2, 0, 0.13, 1.5);
+  /* Decelerating, no overshoot — motion should feel like weight settling,
+     never like something bouncing. */
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @layer base {
@@ -234,6 +237,21 @@
 
   html {
     color-scheme: light;
+    scroll-behavior: smooth;
+  }
+
+  /* Anyone who asked their system for less motion gets none of it. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 
   html.dark {
@@ -307,6 +325,51 @@
     background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
     background-size: 20px 20px;
     background-position: -1px -1px;
+  }
+
+  /* ---- motion, marketing surfaces only ---------------------------------
+     One gesture, used everywhere: content settles up into place. Distance is
+     small (14px) and nothing overshoots, so it reads as considered rather
+     than animated. Chrome inside the app does not use this. */
+  .rise {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 620ms var(--ease-soft),
+      transform 620ms var(--ease-soft);
+    transition-delay: var(--rise-delay, 0ms);
+    will-change: opacity, transform;
+  }
+
+  .rise[data-shown="true"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Cards that respond to the cursor without moving the page around. */
+  .lift {
+    transition:
+      transform 220ms var(--ease-soft),
+      box-shadow 220ms var(--ease-soft);
+  }
+
+  .lift:hover {
+    transform: translateY(-2px);
+  }
+
+  @keyframes caret-blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .caret {
+    animation: caret-blink 1.1s steps(1) infinite;
   }
 
   /* Reveal-on-hover affordances — drag handles, row actions, add buttons.

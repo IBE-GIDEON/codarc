@@ -5,7 +5,9 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
-import { Logo } from "@/components/logo";
+import { SearchField } from "@/components/workspace/search-field";
+import { highlightParts } from "@/components/workspace/search";
+import { Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
 
@@ -13,20 +15,31 @@ export function MapSidebar({
   map,
   selectedId,
   onSelect,
+  query,
+  onQueryChange,
+  matches,
 }: {
   map: RepoMap;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  query: string;
+  onQueryChange: (v: string) => void;
+  matches: Set<string> | null;
 }) {
+  const visible = React.useMemo(
+    () => (matches ? map.nodes.filter((n) => matches.has(n.id)) : map.nodes),
+    [map.nodes, matches],
+  );
+
   const grouped = React.useMemo(() => {
     const g = new Map<NodeKind, GraphNode[]>();
-    for (const n of map.nodes) {
+    for (const n of visible) {
       const list = g.get(n.kind) ?? [];
       list.push(n);
       g.set(n.kind, list);
     }
     return g;
-  }, [map.nodes]);
+  }, [visible]);
 
   const trimmed =
     Object.values(map.stats.found).reduce((a, b) => a + b, 0) - map.nodes.length;
@@ -40,17 +53,18 @@ export function MapSidebar({
 
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-sidebar">
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-        <Link href="/" aria-label="Codarc home">
-          <Logo className="size-5 shrink-0 text-primary" />
+      <div className="flex items-center px-2 pt-2.5 pb-1">
+        <Link href="/" aria-label="Codarc home" className="notion-hover px-1 py-0.5">
+          <Wordmark size="sm" />
         </Link>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-medium text-primary">
-            {map.repo}
-          </div>
-          <div className="truncate text-[11px] text-tertiary">{map.owner}</div>
+        <ThemeToggle className="ml-auto" />
+      </div>
+
+      <div className="min-w-0 px-3 pb-2">
+        <div className="truncate text-[13.5px] font-medium text-primary">
+          {map.repo}
         </div>
-        <ThemeToggle />
+        <div className="truncate text-[11px] text-tertiary">{map.owner}</div>
       </div>
 
       {map.stacks.length > 0 && (
@@ -66,11 +80,22 @@ export function MapSidebar({
         </div>
       )}
 
+      <SearchField
+        value={query}
+        onChange={onQueryChange}
+        count={matches ? matches.size : null}
+        onEnter={() => {
+          const first = visible[0];
+          if (first) onSelect(first.id);
+        }}
+      />
+
       <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
         {KIND_LEGEND.map(({ kind, label, hint }) => {
           const list = grouped.get(kind) ?? [];
           if (!list.length) return null;
-          const isOpen = open[kind];
+          // A search should show you what it found, not make you expand it.
+          const isOpen = matches ? true : open[kind];
 
           return (
             <div key={kind} className="mb-1">
@@ -93,7 +118,7 @@ export function MapSidebar({
                   {label}
                 </span>
                 <span className="ml-auto font-mono text-[11px] text-ghost">
-                  {map.stats.found[kind] > list.length
+                  {!matches && map.stats.found[kind] > list.length
                     ? `${list.length}/${map.stats.found[kind]}`
                     : list.length}
                 </span>
@@ -112,7 +137,20 @@ export function MapSidebar({
                         : "text-secondary hover:bg-hover",
                     )}
                   >
-                    <span className="truncate text-[13px]">{n.title}</span>
+                    <span className="truncate text-[13px]">
+                      {highlightParts(n.title, query).map((part, i) =>
+                        part.hit ? (
+                          <mark
+                            key={i}
+                            className="rounded-xs bg-[rgb(250_194_73/0.42)] text-primary dark:bg-[rgb(255_183_45/0.32)]"
+                          >
+                            {part.text}
+                          </mark>
+                        ) : (
+                          <React.Fragment key={i}>{part.text}</React.Fragment>
+                        ),
+                      )}
+                    </span>
                   </button>
                 ))}
             </div>

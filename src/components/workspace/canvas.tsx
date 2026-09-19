@@ -19,16 +19,23 @@ function edgePath(a: GraphNode, b: GraphNode, off: Offsets) {
   return `M${ax} ${ay} C ${ax + mid} ${ay}, ${bx - mid} ${by}, ${bx} ${by}`;
 }
 
+export type CanvasHandle = { focusNode: (id: string) => void };
+
 export function Canvas({
   map,
   selectedId,
   onSelect,
   storageKey,
+  matches,
+  ref,
 }: {
+  ref?: React.Ref<CanvasHandle>;
   map: RepoMap;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   storageKey: string;
+  /** Ids matching the current search, or null when nothing is searched. */
+  matches: Set<string> | null;
 }) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [view, setView] = React.useState({ x: 0, y: 0, k: 1 });
@@ -190,6 +197,41 @@ export function Canvas({
     [map.nodes],
   );
 
+  // Glide to a node when it's picked from the sidebar or a search result.
+  // Only when it's actually out of view — a jump that wasn't needed is worse
+  // than no jump at all.
+  const [smooth, setSmooth] = React.useState(false);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      focusNode(id: string) {
+        const host = hostRef.current;
+        const n = nodeById.get(id);
+        if (!host || !n) return;
+
+        const { width, height } = host.getBoundingClientRect();
+        const cx = n.x + (offsets[id]?.dx ?? 0) + NODE_W / 2;
+        const cy = n.y + (offsets[id]?.dy ?? 0) + NODE_H / 2;
+        const sx = cx * view.k + view.x;
+        const sy = cy * view.k + view.y;
+
+        const inView =
+          sx > 90 && sx < width - 380 && sy > 90 && sy < height - 90;
+        if (inView) return;
+
+        setSmooth(true);
+        setView((v) => ({
+          ...v,
+          x: Math.min(width / 2, width - 380) - cx * v.k,
+          y: height / 2 - cy * v.k,
+        }));
+        window.setTimeout(() => setSmooth(false), 480);
+      },
+    }),
+    [nodeById, offsets, view.k, view.x, view.y],
+  );
+
   const neighbours = React.useMemo(() => {
     if (!selectedId) return new Set<string>();
     const s = new Set<string>();
@@ -221,6 +263,9 @@ export function Canvas({
         )}
         style={{
           transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`,
+          transition: smooth
+            ? "transform 440ms var(--ease-soft), opacity 200ms"
+            : undefined,
         }}
       >
         <svg
@@ -252,7 +297,12 @@ export function Canvas({
           const dx = offsets[n.id]?.dx ?? 0;
           const dy = offsets[n.id]?.dy ?? 0;
           const selected = selectedId === n.id;
-          const dimmed = Boolean(selectedId) && !selected && !neighbours.has(n.id);
+          const hit = matches?.has(n.id) ?? false;
+          // Search wins over selection for what gets dimmed — while you're
+          // looking for something, that's the only question on your mind.
+          const dimmed = matches
+            ? !hit
+            : Boolean(selectedId) && !selected && !neighbours.has(n.id);
 
           return (
             <div
@@ -282,8 +332,10 @@ export function Canvas({
                 "transition-[box-shadow,opacity] duration-150",
                 selected
                   ? "shadow-[0_0_0_2px_var(--accent),var(--shadow-popover)]"
-                  : "shadow-card hover:shadow-popover",
-                dimmed && "opacity-35",
+                  : hit
+                    ? "shadow-[0_0_0_2px_var(--brand-amber),var(--shadow-popover)]"
+                    : "shadow-card hover:shadow-popover",
+                dimmed && "opacity-25",
               )}
               style={{
                 left: n.x + dx,

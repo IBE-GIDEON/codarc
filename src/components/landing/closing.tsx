@@ -1,6 +1,7 @@
-import { Logo } from "@/components/logo";
+import { Wordmark } from "@/components/logo";
 import { Container, Section } from "@/components/landing/shared";
 import { RepoInput } from "@/components/landing/repo-input";
+import { Reveal } from "@/components/landing/reveal";
 
 const cols = [
   {
@@ -24,19 +25,19 @@ export function Closing() {
           }}
         />
         <Container className="relative">
-          <div className="mx-auto max-w-[680px] text-center">
+          <Reveal className="mx-auto max-w-[680px] text-center">
             <h2 className="text-[34px] leading-[1.1] font-bold tracking-[-0.03em] text-primary md:text-[44px]">
-              Point Codarc at a repository.
+              Point Codarc at your app.
             </h2>
             <p className="mx-auto mt-4 max-w-[46ch] text-[17px] leading-[1.55] text-secondary">
-              Paste a public URL and watch it draw. Connect the private one when
-              you want the pull request.
+              Paste a public link and watch it draw. Connect your own project
+              when you want it making changes.
             </p>
 
             <div className="mt-8">
               <RepoInput />
             </div>
-          </div>
+          </Reveal>
         </Container>
       </Section>
 
@@ -44,12 +45,7 @@ export function Closing() {
         <Container>
           <div className="flex flex-col gap-10 md:flex-row md:justify-between">
             <div className="max-w-[300px]">
-              <div className="flex items-center gap-2">
-                <Logo className="size-6 text-primary" />
-                <span className="text-[15px] font-semibold tracking-[-0.01em] text-primary">
-                  Codarc
-                </span>
-              </div>
+              <Wordmark size="md" />
               <p className="mt-3 text-[13.5px] leading-[1.55] text-tertiary">
                 You shouldn&apos;t have to read forty files to change one thing.
               </p>

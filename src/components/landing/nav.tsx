@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Logo } from "@/components/logo";
+import { Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/landing/shared";
@@ -32,12 +32,9 @@ export function Nav() {
       )}
     >
       <Container>
-        <div className="flex h-14 items-center gap-6">
-          <a href="#" className="flex shrink-0 items-center gap-2">
-            <Logo className="size-6 text-primary" />
-            <span className="text-[15px] font-semibold tracking-[-0.01em] text-primary">
-              Codarc
-            </span>
+        <div className="flex h-16 items-center gap-6">
+          <a href="#" className="shrink-0" aria-label="Codarc home">
+            <Wordmark size="md" />
           </a>
 
           <nav className="hidden items-center gap-1 md:flex">

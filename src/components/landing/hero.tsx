@@ -2,8 +2,9 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container, Frame, Highlight } from "@/components/landing/shared";
 import { ProductShot } from "@/components/landing/product-shot";
+import { Reveal } from "@/components/landing/reveal";
 
-const stacks = ["FastAPI", "Next.js", "Django", "Express", "Flask", "NestJS"];
+const stacks = ["FastAPI", "Next.js", "Django", "Express", "Flask", "Prisma"];
 
 export function Hero() {
   return (
@@ -19,37 +20,45 @@ export function Hero() {
       />
 
       <Container className="relative">
-        <div className="mx-auto max-w-[820px] text-center">
-          <h1 className="text-[42px] leading-[1.06] font-bold tracking-[-0.035em] text-primary sm:text-[56px] md:text-[64px]">
-            See the code you shipped.
+        <div className="mx-auto max-w-[940px] text-center">
+          <Reveal as="h1" className="text-balance text-[38px] leading-[1.08] font-bold tracking-[-0.035em] text-primary sm:text-[50px] md:text-[58px]">
+            See how your own app works.
             <br />
-            Change it by <Highlight>pointing</Highlight>
-          </h1>
+            Then change it by <Highlight>pointing</Highlight>
+          </Reveal>
 
-          <p className="mx-auto mt-6 max-w-[58ch] text-[17px] leading-[1.55] text-secondary md:text-[19px]">
-            Codarc turns any repository into a live architecture map. Click a
-            node, describe the change in plain English, and get a pull request.
-          </p>
+          <Reveal
+            as="p"
+            delay={90}
+            className="mx-auto mt-6 max-w-[56ch] text-[17px] leading-[1.6] text-secondary md:text-[19px]"
+          >
+            Codarc reads your code and draws the whole thing as a picture. Click
+            any part, say what you want changed in ordinary words, and it writes
+            the change and hands it back for you to approve.
+          </Reveal>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+          <Reveal
+            delay={170}
+            className="mt-8 flex flex-wrap items-center justify-center gap-2.5"
+          >
             <a href="#start">
-              <Button variant="primary" size="lg" className="h-10 px-4 text-[15px]">
-                Try Codarc <ArrowRight className="size-4" />
+              <Button variant="primary" size="lg" className="h-11 px-5 text-[15px]">
+                Map my app <ArrowRight className="size-4" />
               </Button>
             </a>
             <a href="#how">
-              <Button variant="secondary" size="lg" className="h-10 px-4 text-[15px]">
-                See how it works
+              <Button variant="secondary" size="lg" className="h-11 px-5 text-[15px]">
+                Show me how it works
               </Button>
             </a>
-          </div>
+          </Reveal>
 
-          <p className="mt-4 text-[13px] text-tertiary">
-            Paid from day one. No free tier, no rate-limited toy.
-          </p>
+          <Reveal delay={230} as="p" className="mt-4 text-[13px] text-tertiary">
+            You don&apos;t need to know how to code. You do need to own the app.
+          </Reveal>
         </div>
 
-        <div className="relative mx-auto mt-14 max-w-[1040px]">
+        <Reveal delay={120} className="relative mx-auto mt-14 max-w-[1040px]">
           <Frame>
             <ProductShot />
           </Frame>
@@ -58,11 +67,11 @@ export function Hero() {
             aria-hidden
             className="pointer-events-none absolute inset-x-0 bottom-0 h-24 rounded-b-xl bg-gradient-to-b from-transparent to-page"
           />
-        </div>
+        </Reveal>
 
-        <div className="mt-14 flex flex-col items-center gap-4">
+        <Reveal delay={80} className="mt-14 flex flex-col items-center gap-4">
           <p className="text-[13px] text-tertiary">
-            Reads the stacks founders actually ship on
+            Reads the tools most AI-built apps are made of
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
             {stacks.map((s) => (
@@ -74,7 +83,7 @@ export function Hero() {
               </span>
             ))}
           </div>
-        </div>
+        </Reveal>
       </Container>
     </section>
   );

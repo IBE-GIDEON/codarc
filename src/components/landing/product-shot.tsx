@@ -79,9 +79,56 @@ function SidebarRow({
   );
 }
 
+const PROMPT = "Rate limit login to 5 attempts per minute per IP";
+
+/** Types the prompt out once the shot is actually on screen. */
+function useTypedPrompt(host: React.RefObject<HTMLDivElement | null>) {
+  // Settle the reduced-motion question before the first paint rather than
+  // typing a character and then snapping to the full string.
+  const [typed, setTyped] = React.useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? PROMPT
+      : "",
+  );
+
+  React.useEffect(() => {
+    const el = host.current;
+    if (!el || typed === PROMPT) return;
+
+    let timer: ReturnType<typeof setTimeout>;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        io.disconnect();
+        let i = 0;
+        const step = () => {
+          i += 1;
+          setTyped(PROMPT.slice(0, i));
+          if (i < PROMPT.length) timer = setTimeout(step, 34);
+        };
+        timer = setTimeout(step, 700);
+      },
+      { threshold: 0.35 },
+    );
+
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      clearTimeout(timer);
+    };
+    // Runs once on mount; `typed` is only read to skip when motion is off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [host]);
+
+  return typed;
+}
+
 export function ProductShot() {
   const ref = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
+  const typed = useTypedPrompt(ref);
+  const done = typed.length === PROMPT.length;
 
   React.useEffect(() => {
     const el = ref.current;
@@ -170,14 +217,19 @@ export function ProductShot() {
 
             <div className="px-3.5 pt-3">
               <div className="rounded-md bg-sunken p-2.5 shadow-[inset_0_0_0_1px_var(--border)]">
-                <p className="text-[12px] leading-[1.45] text-primary">
-                  Rate limit login to 5 attempts per minute per IP
-                  <span className="ml-px inline-block h-[13px] w-px translate-y-[2px] bg-accent" />
+                <p className="min-h-[34px] text-[12px] leading-[1.45] text-primary">
+                  {typed}
+                  <span className="caret ml-px inline-block h-[13px] w-px translate-y-[2px] bg-accent" />
                 </p>
               </div>
             </div>
 
-            <div className="px-3.5 pt-3">
+            {/* The payoff lands after the sentence is finished, so the shot
+                tells the story rather than just showing the end state. */}
+            <div
+              className="px-3.5 pt-3 transition-opacity duration-500 ease-[var(--ease-soft)]"
+              style={{ opacity: done ? 1 : 0 }}
+            >
               <div className="mb-1.5 text-[10.5px] font-medium text-tertiary">
                 Proposed change
               </div>
@@ -196,7 +248,10 @@ export function ProductShot() {
               </pre>
             </div>
 
-            <div className="flex items-center gap-2 px-3.5 py-3">
+            <div
+              className="flex items-center gap-2 px-3.5 py-3 transition-opacity duration-500 delay-150 ease-[var(--ease-soft)]"
+              style={{ opacity: done ? 1 : 0 }}
+            >
               <span className="inline-flex h-7 items-center gap-1.5 rounded-sm bg-accent px-2.5 text-[12px] font-medium text-white">
                 <GitPullRequest className="size-3.5" />
                 Open pull request

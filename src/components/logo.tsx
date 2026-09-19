@@ -28,3 +28,33 @@ export function Logo({ className }: { className?: string }) {
     </svg>
   );
 }
+
+const WORDMARK = {
+  sm: { mark: "size-6", text: "text-[15px]" },
+  md: { mark: "size-8", text: "text-[19px]" },
+  lg: { mark: "size-9", text: "text-[22px]" },
+} as const;
+
+/** Mark plus name, locked to one optical relationship at every size. */
+export function Wordmark({
+  size = "md",
+  className,
+}: {
+  size?: keyof typeof WORDMARK;
+  className?: string;
+}) {
+  const s = WORDMARK[size];
+  return (
+    <span className={cn("flex items-center gap-2", className)}>
+      <Logo className={cn(s.mark, "shrink-0 text-primary")} />
+      <span
+        className={cn(
+          "font-semibold tracking-[-0.02em] text-primary",
+          s.text,
+        )}
+      >
+        Codarc
+      </span>
+    </span>
+  );
+}

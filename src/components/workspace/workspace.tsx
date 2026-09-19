@@ -4,7 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import type { RepoMap } from "@/lib/graph";
-import { Canvas } from "@/components/workspace/canvas";
+import { Canvas, type CanvasHandle } from "@/components/workspace/canvas";
+import { matchNodes } from "@/components/workspace/search";
 import { Inspector } from "@/components/workspace/inspector";
 import { MapSidebar } from "@/components/workspace/map-sidebar";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
@@ -152,6 +153,8 @@ function Primer({ onDismiss }: { onDismiss: () => void }) {
 
 export function Workspace({ owner, repo }: { owner: string; repo: string }) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState("");
+  const canvasRef = React.useRef<CanvasHandle>(null);
   const [primer, setPrimer] = React.useState(false);
   const [nonce, setNonce] = React.useState(0);
   const [result, setResult] = React.useState<Result | null>(null);
@@ -228,10 +231,23 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
 
   const { map } = state;
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null;
+  const matches = matchNodes(map.nodes, query);
+
+  function pick(id: string) {
+    setSelectedId(id);
+    canvasRef.current?.focusNode(id);
+  }
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      <MapSidebar map={map} selectedId={selectedId} onSelect={setSelectedId} />
+      <MapSidebar
+        map={map}
+        selectedId={selectedId}
+        onSelect={pick}
+        query={query}
+        onQueryChange={setQuery}
+        matches={matches}
+      />
 
       <main className="relative min-w-0 flex-1">
         {map.nodes.length === 0 ? (
@@ -255,10 +271,12 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
         ) : (
           <Canvas
             key={`${owner}/${repo}`}
+            ref={canvasRef}
             map={map}
             selectedId={selectedId}
             onSelect={setSelectedId}
             storageKey={`codarc-layout:${owner}/${repo}`}
+            matches={matches}
           />
         )}
 
