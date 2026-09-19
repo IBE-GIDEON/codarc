@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ChangeError, proposeChange } from "@/lib/change";
+import { ChangeError, holdProposal, proposeChange } from "@/lib/change";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
 
@@ -55,10 +55,20 @@ export async function POST(request: Request) {
       instruction: instruction.trim(),
     });
 
+    const proposalId = holdProposal({
+      owner,
+      repo: name,
+      branch: branch || "HEAD",
+      instruction: instruction.trim(),
+      nodeTitle: node.title,
+      proposal,
+    });
+
     // The full file contents stay on the server; the browser only needs the
     // diff to render. Sending whole files back would bloat the response and
     // invite a tampered payload on the pull-request step.
     return NextResponse.json({
+      proposalId,
       summary: proposal.summary,
       caveat: proposal.caveat,
       added: proposal.added,

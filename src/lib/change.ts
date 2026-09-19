@@ -59,6 +59,42 @@ export type Proposal = {
   removed: number;
 };
 
+export type StoredProposal = {
+  owner: string;
+  repo: string;
+  branch: string;
+  instruction: string;
+  nodeTitle: string;
+  proposal: Proposal;
+};
+
+/**
+ * New file contents never go to the browser — the pull-request step looks them
+ * up here by id instead. That keeps the payload small and means a tampered
+ * response can't decide what gets committed.
+ */
+const held = new Map<string, { at: number; value: StoredProposal }>();
+const HOLD_MS = 30 * 60 * 1000;
+
+export function holdProposal(value: StoredProposal): string {
+  const now = Date.now();
+  for (const [key, entry] of held) {
+    if (now - entry.at > HOLD_MS) held.delete(key);
+  }
+  const id = crypto.randomUUID();
+  held.set(id, { at: now, value });
+  return id;
+}
+
+export function takeProposal(id: string): StoredProposal | null {
+  const entry = held.get(id);
+  if (!entry || Date.now() - entry.at > HOLD_MS) {
+    held.delete(id);
+    return null;
+  }
+  return entry.value;
+}
+
 const SYSTEM = `You edit real production codebases on behalf of founders who cannot read code. They describe what they want in ordinary words; you make the smallest correct change.
 
 Rules:

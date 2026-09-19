@@ -2,6 +2,7 @@ import type { DiffHunk } from "@/lib/diff";
 import { cn } from "@/lib/cn";
 
 export type ProposalView = {
+  proposalId: string;
   summary: string;
   caveat: string;
   added: number;

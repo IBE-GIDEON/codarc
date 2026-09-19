@@ -20,7 +20,15 @@ type Phase =
   | { at: "idle" }
   | { at: "drafting" }
   | { at: "failed"; error: string; hint: string }
-  | { at: "ready"; proposal: ProposalView };
+  | { at: "ready"; proposal: ProposalView }
+  | { at: "sending"; proposal: ProposalView }
+  | {
+      at: "sendFailed";
+      proposal: ProposalView;
+      error: string;
+      hint: string;
+    }
+  | { at: "sent"; url: string; number: number };
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -64,7 +72,28 @@ export function Inspector({
   // the draft resets on its own.
   const [draft, setDraft] = React.useState("");
   const [phase, setPhase] = React.useState<Phase>({ at: "idle" });
+  const [connected, setConnected] = React.useState(false);
   const legend = KIND_LEGEND.find((l) => l.kind === node.kind);
+
+  // The install cookie is httpOnly, so whether GitHub is connected has to
+  // come from the server.
+  React.useEffect(() => {
+    let live = true;
+    fetch("/api/github/status")
+      .then((r) => r.json())
+      .then((d) => {
+        if (live) setConnected(Boolean(d.connected));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const here =
+    typeof window === "undefined"
+      ? "/"
+      : window.location.pathname + window.location.search;
 
   const href = `https://github.com/${map.owner}/${map.repo}/blob/${map.branch}/${node.file}#L${node.line}`;
 
@@ -99,6 +128,42 @@ export function Inspector({
       });
     }
   }
+
+  async function send(proposal: ProposalView) {
+    setPhase({ at: "sending", proposal });
+    try {
+      const res = await fetch("/api/pr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proposalId: proposal.proposalId }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setPhase({
+          at: "sendFailed",
+          proposal,
+          error: body.error ?? "We couldn't send it",
+          hint: body.hint ?? "Try again.",
+        });
+        return;
+      }
+      setPhase({ at: "sent", url: body.url, number: body.number });
+    } catch {
+      setPhase({
+        at: "sendFailed",
+        proposal,
+        error: "We couldn't reach Codarc",
+        hint: "Nothing was sent. Check your connection and try again.",
+      });
+    }
+  }
+
+  const shown =
+    phase.at === "ready" ||
+    phase.at === "sending" ||
+    phase.at === "sendFailed"
+      ? phase.proposal
+      : null;
 
   return (
     <aside
@@ -170,26 +235,44 @@ export function Inspector({
         <div className="mt-5" data-tour="change">
           <Label>Change it</Label>
 
-          {phase.at === "ready" ? (
+          {phase.at === "sent" ? (
+            <div className="rounded-sm bg-c-green-bg p-3">
+              <p className="text-[13px] leading-[1.55] text-primary">
+                Sent. It&apos;s waiting for you on GitHub as pull request #
+                {phase.number}. Nothing has changed in your live app until you
+                accept it there.
+              </p>
+            </div>
+          ) : shown ? (
             <div className="space-y-3">
               <div className="rounded-sm bg-c-green-bg p-3">
                 <p className="text-[13px] leading-[1.55] text-primary">
-                  {phase.proposal.summary}
+                  {shown.summary}
                 </p>
                 <p className="mt-1.5 font-mono text-[11px] text-c-green">
-                  +{phase.proposal.added} −{phase.proposal.removed} across{" "}
-                  {phase.proposal.files.length}{" "}
-                  {phase.proposal.files.length === 1 ? "file" : "files"}
+                  +{shown.added} −{shown.removed} across {shown.files.length}{" "}
+                  {shown.files.length === 1 ? "file" : "files"}
                 </p>
               </div>
 
-              {phase.proposal.caveat && (
+              {shown.caveat && (
                 <div className="rounded-sm bg-c-yellow-bg p-3 text-[12.5px] leading-[1.5] text-primary">
-                  {phase.proposal.caveat}
+                  {shown.caveat}
                 </div>
               )}
 
-              <DiffView proposal={phase.proposal} />
+              {phase.at === "sendFailed" && (
+                <div className="rounded-sm bg-c-red-bg p-2.5">
+                  <div className="text-[12.5px] font-medium text-primary">
+                    {phase.error}
+                  </div>
+                  <p className="mt-0.5 text-[12px] leading-[1.45] text-secondary">
+                    {phase.hint}
+                  </p>
+                </div>
+              )}
+
+              <DiffView proposal={shown} />
             </div>
           ) : phase.at === "drafting" ? (
             <Drafting />
@@ -227,24 +310,66 @@ export function Inspector({
       </div>
 
       <div className="space-y-2 px-4 pt-3 pb-4">
-        {phase.at === "ready" ? (
+        {phase.at === "sent" ? (
           <>
-            <div className="rounded-sm bg-c-blue-bg p-3">
-              <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-primary">
-                <Lock className="size-3.5" /> Connect GitHub to send this
-              </div>
-              <p className="mt-1 text-[12px] leading-[1.5] text-secondary">
-                Nothing has been written. To turn this into a pull request on
-                your repository, Codarc needs your permission to write to it.
-              </p>
-              <Button variant="primary" size="md" className="mt-2.5 w-full">
-                <GitPullRequest className="size-3.5" /> Connect GitHub
+            <a href={phase.url} target="_blank" rel="noreferrer">
+              <Button variant="primary" size="lg" className="w-full">
+                <GitPullRequest className="size-3.5" /> Open it on GitHub
               </Button>
-            </div>
+            </a>
             <Button
               variant="secondary"
               size="lg"
               className="w-full"
+              onClick={() => {
+                setDraft("");
+                setPhase({ at: "idle" });
+              }}
+            >
+              <RotateCcw className="size-3.5" /> Change something else
+            </Button>
+          </>
+        ) : shown ? (
+          <>
+            {connected ? (
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full"
+                disabled={phase.at === "sending"}
+                onClick={() => send(shown)}
+              >
+                {phase.at === "sending" ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> Sending
+                  </>
+                ) : (
+                  <>
+                    <GitPullRequest className="size-3.5" /> Send it to GitHub
+                  </>
+                )}
+              </Button>
+            ) : (
+              <div className="rounded-sm bg-c-blue-bg p-3">
+                <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-primary">
+                  <Lock className="size-3.5" /> Connect GitHub to send this
+                </div>
+                <p className="mt-1 text-[12px] leading-[1.5] text-secondary">
+                  Nothing has been written yet. Codarc needs your permission on
+                  this repository before it can hand the change over.
+                </p>
+                <a href={`/api/github/install?back=${encodeURIComponent(here)}`}>
+                  <Button variant="primary" size="md" className="mt-2.5 w-full">
+                    <GitPullRequest className="size-3.5" /> Connect GitHub
+                  </Button>
+                </a>
+              </div>
+            )}
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full"
+              disabled={phase.at === "sending"}
               onClick={() => {
                 setDraft("");
                 setPhase({ at: "idle" });
