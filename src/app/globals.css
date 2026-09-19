@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+/* Explicit class-based dark mode. Notion has light / dark / system as a real
+   setting, not just a media query — so we drive it from a `.dark` class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Notion's palette is warm, not neutral. The signature move is #37352F —
+   a brown-black — instead of pure #000. Every gray in the system is that
+   same ink at low alpha, which is why Notion surfaces feel like paper
+   rather than glass. Never substitute a cool gray here.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* ink — the one true foreground; every gray is this at some alpha */
+  --ink: 55 53 47;
+
+  /* surfaces */
+  --bg-page: #ffffff;
+  --bg-sidebar: #f7f7f5;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f7f7f5;
+  --bg-code: #f7f6f3;
+
+  /* interaction — the heart of the feel: everything is a hover target */
+  --bg-hover: rgb(var(--ink) / 0.055);
+  --bg-active: rgb(var(--ink) / 0.09);
+  --bg-selected: rgb(35 131 226 / 0.1);
+
+  /* text */
+  --text-primary: rgb(var(--ink) / 1);
+  --text-secondary: rgb(var(--ink) / 0.65);
+  --text-tertiary: rgb(var(--ink) / 0.45);
+  --text-ghost: rgb(var(--ink) / 0.28);
+
+  /* lines — barely there on purpose. Notion separates with space, not rules */
+  --border: rgb(var(--ink) / 0.09);
+  --border-strong: rgb(var(--ink) / 0.16);
+
+  /* accent — the brand blue, not Notion's. This one token is what keeps the
+     app from reading as a Notion clone. */
+  --accent: #0b6fff;
+  --accent-hover: #0057d8;
+  --accent-text: #0b6fff;
+  --accent-contrast: #ffffff;
+
+  /* brand — sampled from the logo + backdrop. The three pills in the mark are
+     the node-type legend, so they are product tokens, not decoration. */
+  --brand-purple: #6b46f5;
+  --brand-blue: #1270f8;
+  --brand-amber: #fac249;
+
+  /* canvas — the dotted grid from the backdrop. Its own surface, distinct
+     from `page`, because the diagram is a place rather than a document. */
+  --canvas: #ededef;
+  --canvas-dot: rgb(var(--ink) / 0.22);
+
+  /* semantic text colors — Notion's inline text palette */
+  --c-gray: #787774;
+  --c-brown: #9f6b53;
+  --c-orange: #d9730d;
+  --c-yellow: #cb912f;
+  --c-green: #448361;
+  --c-blue: #337ea9;
+  --c-purple: #9065b0;
+  --c-pink: #c14c8a;
+  --c-red: #d44c47;
+
+  /* semantic backgrounds — the callout / highlight tints */
+  --c-gray-bg: #f1f1ef;
+  --c-brown-bg: #f4eeee;
+  --c-orange-bg: #faebdd;
+  --c-yellow-bg: #fbf3db;
+  --c-green-bg: #edf3ec;
+  --c-blue-bg: #e7f3f8;
+  --c-purple-bg: #f6f3f9;
+  --c-pink-bg: #faf1f5;
+  --c-red-bg: #fdebec;
+
+  /* elevation — layered hairline + soft + wide. Never one big blur. */
+  --shadow-card: rgb(15 15 15 / 0.04) 0px 0px 0px 1px,
+    rgb(15 15 15 / 0.03) 0px 1px 2px;
+  --shadow-popover: rgb(15 15 15 / 0.05) 0px 0px 0px 1px,
+    rgb(15 15 15 / 0.1) 0px 3px 6px, rgb(15 15 15 / 0.2) 0px 9px 24px;
+  --shadow-modal: rgb(15 15 15 / 0.05) 0px 0px 0px 1px,
+    rgb(15 15 15 / 0.1) 0px 5px 10px, rgb(15 15 15 / 0.2) 0px 15px 40px;
+}
+
+.dark {
+  --ink: 255 255 255;
+
+  --bg-page: #191919;
+  --bg-sidebar: #202020;
+  --bg-raised: #252525;
+  --bg-sunken: #161616;
+  --bg-code: #232323;
+
+  --bg-hover: rgb(var(--ink) / 0.055);
+  --bg-active: rgb(var(--ink) / 0.1);
+  --bg-selected: rgb(35 131 226 / 0.2);
+
+  /* Notion never uses pure white text in dark mode — it sits at 81% */
+  --text-primary: rgb(var(--ink) / 0.81);
+  --text-secondary: rgb(var(--ink) / 0.46);
+  --text-tertiary: rgb(var(--ink) / 0.28);
+  --text-ghost: rgb(var(--ink) / 0.18);
+
+  --border: rgb(var(--ink) / 0.094);
+  --border-strong: rgb(var(--ink) / 0.13);
+
+  /* The logo sits on black, so it *is* the dark-mode palette. */
+  --accent: #3b8bff;
+  --accent-hover: #5c9eff;
+  --accent-text: #5ea0ff;
+
+  --brand-purple: #925eff;
+  --brand-blue: #056fff;
+  --brand-amber: #ffb72d;
+
+  --canvas: #1b1b1b;
+  --canvas-dot: rgb(var(--ink) / 0.16);
+
+  --c-gray: #9b9b9b;
+  --c-brown: #ba856f;
+  --c-orange: #c77d48;
+  --c-yellow: #ca9849;
+  --c-green: #529e72;
+  --c-blue: #5e87c9;
+  --c-purple: #9d68d3;
+  --c-pink: #d15796;
+  --c-red: #ff7369;
+
+  --c-gray-bg: #2f2f2f;
+  --c-brown-bg: #4a3228;
+  --c-orange-bg: #5c3b23;
+  --c-yellow-bg: #56452f;
+  --c-green-bg: #243d30;
+  --c-blue-bg: #143a4e;
+  --c-purple-bg: #3c2d49;
+  --c-pink-bg: #4e2c3c;
+  --c-red-bg: #522e2a;
+
+  --shadow-card: rgb(0 0 0 / 0.2) 0px 0px 0px 1px, rgb(0 0 0 / 0.2) 0px 1px 2px;
+  --shadow-popover: rgb(0 0 0 / 0.2) 0px 0px 0px 1px,
+    rgb(0 0 0 / 0.3) 0px 3px 6px, rgb(0 0 0 / 0.4) 0px 9px 24px;
+  --shadow-modal: rgb(0 0 0 / 0.2) 0px 0px 0px 1px,
+    rgb(0 0 0 / 0.3) 0px 5px 10px, rgb(0 0 0 / 0.4) 0px 15px 40px;
+}
+
+@theme inline {
+  --color-page: var(--bg-page);
+  --color-sidebar: var(--bg-sidebar);
+  --color-raised: var(--bg-raised);
+  --color-sunken: var(--bg-sunken);
+  --color-code: var(--bg-code);
+
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-selected: var(--bg-selected);
+
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-tertiary: var(--text-tertiary);
+  --color-ghost: var(--text-ghost);
+
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-contrast: var(--accent-contrast);
+
+  --color-c-gray: var(--c-gray);
+  --color-c-brown: var(--c-brown);
+  --color-c-orange: var(--c-orange);
+  --color-c-yellow: var(--c-yellow);
+  --color-c-green: var(--c-green);
+  --color-c-blue: var(--c-blue);
+  --color-c-purple: var(--c-purple);
+  --color-c-pink: var(--c-pink);
+  --color-c-red: var(--c-red);
+
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-amber: var(--brand-amber);
+  --color-canvas: var(--canvas);
+
+  --color-c-gray-bg: var(--c-gray-bg);
+  --color-c-brown-bg: var(--c-brown-bg);
+  --color-c-orange-bg: var(--c-orange-bg);
+  --color-c-yellow-bg: var(--c-yellow-bg);
+  --color-c-green-bg: var(--c-green-bg);
+  --color-c-blue-bg: var(--c-blue-bg);
+  --color-c-purple-bg: var(--c-purple-bg);
+  --color-c-pink-bg: var(--c-pink-bg);
+  --color-c-red-bg: var(--c-red-bg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, -apple-system,
+    BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica,
+    "Apple Color Emoji", Arial, sans-serif;
+  --font-mono: var(--font-mono-face), "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --font-serif: Lyon-Text, Georgia, ui-serif, serif;
+
+  /* Notion's radii are small. 3px is the hover-chip radius and it is the
+     single most recognizable dimension in the whole system. */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-popover: var(--shadow-popover);
+  --shadow-modal: var(--shadow-modal);
+
+  /* Control heights — compact chrome, generous content */
+  --spacing-control-sm: 24px;
+  --spacing-control: 28px;
+  --spacing-control-lg: 32px;
+
+  /* Notion's content column is a hard constraint, not a suggestion */
+  --container-reading: 708px;
+
+  --ease-notion: cubic-bezier(0.2, 0, 0.13, 1.5);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-feature-settings: "liga" 1, "calt" 1, "kern" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Notion's focus ring is a soft accent halo, never a hard outline */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px rgb(35 131 226 / 0.28);
+  }
+
+  ::selection {
+    background: rgb(35 131 226 / 0.28);
+  }
+
+  /* Thin, ink-tinted scrollbars that fade into the page */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--ink) / 0.18) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--ink) / 0.18);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--ink) / 0.3);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* The single most important interaction in the system.
+     Every row, every icon, every block gets this. */
+  .notion-hover {
+    border-radius: var(--radius-sm);
+    transition: background 20ms ease-in;
+  }
+
+  .notion-hover:hover {
+    background: var(--bg-hover);
+  }
+
+  .notion-hover:active {
+    background: var(--bg-active);
+  }
+
+  /* The dotted grid straight off the backdrop art. Canvas only — this never
+     appears behind prose or chrome. */
+  .canvas-grid {
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: -1px -1px;
+  }
+
+  /* Reveal-on-hover affordances — drag handles, row actions, add buttons.
+     Notion keeps chrome invisible until your cursor is in the neighborhood. */
+  .reveal-parent .reveal {
+    opacity: 0;
+    transition: opacity 100ms ease-in;
+  }
+
+  .reveal-parent:hover .reveal,
+  .reveal-parent:focus-within .reveal {
+    opacity: 1;
+  }
+}
