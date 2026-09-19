@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { env, hasEnv } from "@/lib/env";
 
 /**
  * The `state` GitHub hands back carries where to return to, plus a nonce we
@@ -47,8 +48,8 @@ export async function identify(code: string): Promise<GithubUser | null> {
       "User-Agent": "codarc",
     },
     body: JSON.stringify({
-      client_id: process.env.GITHUB_APP_CLIENT_ID,
-      client_secret: process.env.GITHUB_APP_CLIENT_SECRET,
+      client_id: env("GITHUB_APP_CLIENT_ID"),
+      client_secret: env("GITHUB_APP_CLIENT_SECRET"),
       code,
     }),
     cache: "no-store",

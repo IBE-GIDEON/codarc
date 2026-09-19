@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
+import { env, hasEnv } from "@/lib/env";
 
 /**
  * Who is signed in.
@@ -24,7 +25,7 @@ const COOKIE = "codarc-session";
 const MAX_AGE_DAYS = 30;
 
 function secret(): string {
-  const value = process.env.SESSION_SECRET;
+  const value = env("SESSION_SECRET");
   if (!value) throw new Error("SESSION_SECRET is not set");
   return value;
 }
@@ -67,7 +68,7 @@ export function unseal(token: string): User | null {
 }
 
 export async function currentUser(): Promise<User | null> {
-  if (!process.env.SESSION_SECRET) return null;
+  if (!hasEnv("SESSION_SECRET")) return null;
   const token = (await cookies()).get(COOKIE)?.value;
   return token ? unseal(token) : null;
 }
@@ -84,9 +85,9 @@ export const sessionCookie = {
 };
 
 export function canSignIn() {
-  return Boolean(
-    process.env.GITHUB_APP_CLIENT_ID &&
-      process.env.GITHUB_APP_CLIENT_SECRET &&
-      process.env.SESSION_SECRET,
+  return (
+    hasEnv("GITHUB_APP_CLIENT_ID") &&
+    hasEnv("GITHUB_APP_CLIENT_SECRET") &&
+    hasEnv("SESSION_SECRET")
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { STATE_COOKIE, packState } from "@/lib/oauth";
 import { canSignIn } from "@/lib/session";
+import { env, hasEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
   const { state, nonce } = packState(back);
 
   const authorize = new URL("https://github.com/login/oauth/authorize");
-  authorize.searchParams.set("client_id", process.env.GITHUB_APP_CLIENT_ID!);
+  authorize.searchParams.set("client_id", env("GITHUB_APP_CLIENT_ID")!);
   authorize.searchParams.set(
     "redirect_uri",
     new URL("/api/github/callback", request.url).toString(),

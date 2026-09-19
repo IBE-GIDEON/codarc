@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { env, hasEnv } from "@/lib/env";
 
 /**
  * GitHub App auth. The app signs a short JWT with its private key, swaps that
@@ -18,7 +19,7 @@ export class GithubAppError extends Error {
 }
 
 function privateKey(): string {
-  const path = process.env.GITHUB_APP_PRIVATE_KEY_PATH;
+  const path = env("GITHUB_APP_PRIVATE_KEY_PATH");
   if (path) {
     try {
       return fs.readFileSync(path, "utf8");
@@ -31,7 +32,7 @@ function privateKey(): string {
     }
   }
 
-  const inline = process.env.GITHUB_APP_PRIVATE_KEY;
+  const inline = env("GITHUB_APP_PRIVATE_KEY");
   if (!inline) {
     throw new GithubAppError(
       "Codarc isn't connected to GitHub yet",
@@ -44,10 +45,9 @@ function privateKey(): string {
 }
 
 export function isConfigured() {
-  return Boolean(
-    process.env.GITHUB_APP_ID &&
-      (process.env.GITHUB_APP_PRIVATE_KEY ||
-        process.env.GITHUB_APP_PRIVATE_KEY_PATH),
+  return (
+    hasEnv("GITHUB_APP_ID") &&
+    (hasEnv("GITHUB_APP_PRIVATE_KEY") || hasEnv("GITHUB_APP_PRIVATE_KEY_PATH"))
   );
 }
 
@@ -60,7 +60,7 @@ const b64 = (input: string | Buffer) =>
 
 /** RS256, signed with node:crypto so we don't pull in a JWT dependency. */
 function appJwt(): string {
-  const appId = process.env.GITHUB_APP_ID;
+  const appId = env("GITHUB_APP_ID");
   if (!appId) {
     throw new GithubAppError(
       "Codarc isn't connected to GitHub yet",

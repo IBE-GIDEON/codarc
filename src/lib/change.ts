@@ -4,6 +4,7 @@ import { z } from "zod";
 import { fetchFiles } from "@/lib/github";
 import { countChanges, lineDiff, type DiffHunk } from "@/lib/diff";
 import type { GraphNode } from "@/lib/graph";
+import { env, hasEnv } from "@/lib/env";
 
 export class ChangeError extends Error {
   constructor(
@@ -123,7 +124,7 @@ export async function proposeChange({
   node: GraphNode;
   instruction: string;
 }): Promise<Proposal> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!hasEnv("ANTHROPIC_API_KEY")) {
     throw new ChangeError(
       "Codarc isn't set up to write changes yet",
       "The server is missing its ANTHROPIC_API_KEY. Add it where this is hosted, then redeploy.",

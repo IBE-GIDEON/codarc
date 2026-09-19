@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
+import { env, hasEnv } from "@/lib/env";
 
 /**
  * Drafting a change costs real money per click, so while Codarc is pre-launch
@@ -11,12 +12,12 @@ import { cookies } from "next/headers";
  */
 
 export function lockEnabled() {
-  return Boolean(process.env.CODARC_OWNER_KEY);
+  return hasEnv("CODARC_OWNER_KEY");
 }
 
 /** Constant-time compare so the key can't be guessed a character at a time. */
 export function keyMatches(candidate: string) {
-  const secret = process.env.CODARC_OWNER_KEY;
+  const secret = env("CODARC_OWNER_KEY");
   if (!secret) return false;
 
   const a = Buffer.from(candidate);

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { isConfigured } from "@/lib/github-app";
 import { isOwner } from "@/lib/owner";
 import { canSignIn, currentUser } from "@/lib/session";
+import { env, hasEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function GET() {
     // Three separate gates, in the order someone meets them.
     signedIn: Boolean(user),
     canDraft:
-      Boolean(process.env.ANTHROPIC_API_KEY) &&
+      hasEnv("ANTHROPIC_API_KEY") &&
       Boolean(user) &&
       (await isOwner()),
     canSend: isConfigured(),

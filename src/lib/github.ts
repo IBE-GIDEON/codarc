@@ -1,3 +1,4 @@
+import { env, hasEnv } from "@/lib/env";
 /** Read-only GitHub access for public repositories. */
 
 export class RepoError extends Error {
@@ -18,8 +19,9 @@ function headers() {
     "User-Agent": "codarc",
   };
   // Optional: lifts the anonymous 60-requests-an-hour ceiling.
-  if (process.env.GITHUB_TOKEN) {
-    h.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const token = env("GITHUB_TOKEN");
+  if (token) {
+    h.Authorization = `Bearer ${token}`;
   }
   return h;
 }
