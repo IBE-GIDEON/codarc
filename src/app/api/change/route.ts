@@ -3,13 +3,24 @@ import { ChangeError, holdProposal, proposeChange } from "@/lib/change";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
 import { isOwner } from "@/lib/owner";
+import { currentUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  // Every draft spends real money, so the lock is checked before anything
-  // else — including before we read the body.
+  // Both gates run before the body is even read: a draft spends real money,
+  // and we want a name attached to every one of them.
+  if (!(await currentUser())) {
+    return NextResponse.json(
+      {
+        error: "Sign in to change things",
+        hint: "Codarc needs to know who you are before it edits your code.",
+      },
+      { status: 401 },
+    );
+  }
+
   if (!(await isOwner())) {
     return NextResponse.json(
       {

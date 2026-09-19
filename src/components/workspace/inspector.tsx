@@ -15,6 +15,7 @@ import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
 import { DiffView, type ProposalView } from "@/components/workspace/diff-view";
 import { Button, IconButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { GithubMark } from "@/components/brand-marks";
 
 type Phase =
   | { at: "idle" }
@@ -72,7 +73,15 @@ export function Inspector({
   // the draft resets on its own.
   const [draft, setDraft] = React.useState("");
   const [phase, setPhase] = React.useState<Phase>({ at: "idle" });
-  const [caps, setCaps] = React.useState({
+  const [caps, setCaps] = React.useState<{
+    signedIn: boolean;
+    canSignIn: boolean;
+    canDraft: boolean;
+    canSend: boolean;
+    connected: boolean;
+  }>({
+    signedIn: true,
+    canSignIn: true,
     canDraft: true,
     canSend: true,
     connected: false,
@@ -241,7 +250,17 @@ export function Inspector({
         <div className="mt-5" data-tour="change">
           <Label>Change it</Label>
 
-          {!caps.canDraft ? (
+          {!caps.signedIn ? (
+            <div className="rounded-sm bg-c-blue-bg p-3">
+              <p className="text-[12.5px] leading-[1.55] text-primary">
+                Sign in to change things.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
+                Looking is free and needs no account. Codarc only needs to know
+                who you are before it touches your code.
+              </p>
+            </div>
+          ) : !caps.canDraft ? (
             <div className="rounded-sm bg-c-gray-bg p-3">
               <p className="text-[12.5px] leading-[1.55] text-primary">
                 Changing your app from here isn&apos;t switched on yet.
@@ -326,7 +345,29 @@ export function Inspector({
       </div>
 
       <div className="space-y-2 px-4 pt-3 pb-4">
-        {!caps.canDraft ? (
+        {!caps.signedIn ? (
+          <a
+            href={
+              caps.canSignIn
+                ? `/api/auth/github?back=${encodeURIComponent(here)}`
+                : href
+            }
+            target={caps.canSignIn ? undefined : "_blank"}
+            rel={caps.canSignIn ? undefined : "noreferrer"}
+          >
+            <Button variant="primary" size="lg" className="w-full">
+              {caps.canSignIn ? (
+                <>
+                  <GithubMark className="size-3.5" /> Sign in with GitHub
+                </>
+              ) : (
+                <>
+                  <FileCode2 className="size-3.5" /> Read this on GitHub
+                </>
+              )}
+            </Button>
+          </a>
+        ) : !caps.canDraft ? (
           <a href={href} target="_blank" rel="noreferrer">
             <Button variant="secondary" size="lg" className="w-full">
               <FileCode2 className="size-3.5" /> Read this on GitHub

@@ -9,6 +9,7 @@ import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
 import { SearchField } from "@/components/workspace/search-field";
 import { highlightParts } from "@/components/workspace/search";
 import { Wordmark } from "@/components/logo";
+import { Account } from "@/components/workspace/account";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
 
@@ -170,7 +171,11 @@ export function MapSidebar({
         })}
       </div>
 
-      <div className="px-3 py-2.5 text-[11px] leading-[1.5] text-tertiary shadow-[inset_0_1px_0_0_var(--border)]">
+      <div className="shadow-[inset_0_1px_0_0_var(--border)]">
+        <Account />
+      </div>
+
+      <div className="px-3 pb-2.5 text-[11px] leading-[1.5] text-tertiary">
         Read {map.stats.filesScanned} of {map.stats.filesTotal} files on{" "}
         <span className="font-mono">{map.branch}</span>.
         {trimmed > 0 && (

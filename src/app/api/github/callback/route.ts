@@ -1,37 +1,78 @@
 import { NextResponse } from "next/server";
+import { STATE_COOKIE, identify, unpackState } from "@/lib/oauth";
+import { canSignIn, seal, sessionCookie } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 /**
- * Where GitHub lands after someone installs the app. We only need the
- * installation id — it's the handle for acting on the repos they picked.
+ * One callback for both journeys, because a GitHub App has a single redirect
+ * URI and asking someone to register two is a step they'd get wrong.
+ *
+ * - `code` present      → they signed in; work out who they are
+ * - `installation_id`   → they granted access to repositories
+ *
+ * Installing with OAuth turned on sends both at once, which is why neither
+ * branch returns early.
  */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
+  const code = params.get("code");
   const installationId = params.get("installation_id");
 
-  // `state` is our own return path, set on the way out. Keep it relative so a
-  // crafted link can't bounce someone off to another site.
-  const raw = params.get("state") ?? "/";
-  const back = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
+  const unpacked = unpackState(params.get("state"));
+  const back = unpacked?.back ?? "/";
 
-  if (!installationId) {
-    return NextResponse.redirect(
-      new URL(`${back}?github=cancelled`, request.url),
-    );
+  const flags: string[] = [];
+  let session: string | null = null;
+
+  if (code && canSignIn()) {
+    // The nonce must match the cookie we set on the way out.
+    const expected = request.headers
+      .get("cookie")
+      ?.split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith(`${STATE_COOKIE}=`))
+      ?.split("=")[1];
+
+    if (!unpacked || !expected || unpacked.nonce !== expected) {
+      flags.push("signin=expired");
+    } else {
+      const user = await identify(code);
+      if (!user) {
+        flags.push("signin=failed");
+      } else {
+        session = seal({
+          id: user.id,
+          login: user.login,
+          name: user.name,
+          avatar: user.avatar_url,
+        });
+        flags.push("signin=ok");
+      }
+    }
   }
 
+  if (installationId) flags.push("github=connected");
+  if (!code && !installationId) flags.push("github=cancelled");
+
+  const separator = back.includes("?") ? "&" : "?";
   const response = NextResponse.redirect(
-    new URL(`${back}?github=connected`, request.url),
+    new URL(`${back}${flags.length ? separator + flags.join("&") : ""}`, request.url),
   );
 
-  response.cookies.set("codarc-installation", installationId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  if (session) {
+    response.cookies.set(sessionCookie.name, session, sessionCookie.options);
+  }
+  if (installationId) {
+    response.cookies.set("codarc-installation", installationId, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+  response.cookies.delete(STATE_COOKIE);
 
   return response;
 }

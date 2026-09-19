@@ -9,11 +9,22 @@ import {
   openPullRequest,
 } from "@/lib/github-app";
 import { isOwner } from "@/lib/owner";
+import { currentUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  if (!(await currentUser())) {
+    return NextResponse.json(
+      {
+        error: "Sign in to send changes",
+        hint: "Codarc needs to know who you are before it opens a pull request.",
+      },
+      { status: 401 },
+    );
+  }
+
   if (!(await isOwner())) {
     return NextResponse.json(
       {
