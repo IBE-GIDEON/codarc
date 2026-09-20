@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronRight, HelpCircle } from "lucide-react";
+import { ChevronRight, FileText, HelpCircle } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
@@ -177,6 +177,16 @@ export function MapSidebar({
             </div>
           );
         })}
+      </div>
+
+      <div className="px-2 pb-1">
+        <Link
+          href={`/r/${map.owner}/${map.repo}/handover`}
+          className="notion-hover flex h-8 items-center gap-2 px-2 text-[13px] text-secondary hover:text-primary"
+        >
+          <FileText className="size-3.5 shrink-0 text-tertiary" />
+          Handover pack
+        </Link>
       </div>
 
       <div className="shadow-[inset_0_1px_0_0_var(--border)]">

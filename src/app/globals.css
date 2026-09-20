@@ -384,3 +384,44 @@
     opacity: 1;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Printing. The handover pack's real delivery format is a PDF somebody emails,
+   so it has to survive leaving the browser: light ink on white paper, nothing
+   clipped, and no box split across a page break.
+--------------------------------------------------------------------------- */
+@media print {
+  :root {
+    --bg-page: #ffffff;
+    --bg-sunken: #f7f7f5;
+    --bg-raised: #ffffff;
+    --text-primary: rgb(55 53 47);
+    --text-secondary: rgb(55 53 47 / 0.75);
+    --text-tertiary: rgb(55 53 47 / 0.55);
+    --border: rgb(55 53 47 / 0.15);
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  @page {
+    margin: 18mm 16mm;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  section {
+    break-inside: auto;
+  }
+}

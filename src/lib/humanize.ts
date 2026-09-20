@@ -266,9 +266,13 @@ export function purposeTitle(method: string, path: string): string | null {
       .map(proper)
       .filter(Boolean)
       .join(" ");
-    const before = parts
-      .slice(0, i)
-      .filter((w) => !isJobWord(w))
+    // Words before the job word are its subject. Drop the ones that are job
+    // names themselves — "/connect/reddit/callback" is about Reddit, not about
+    // connecting — but keep them if that would leave nothing at all, because
+    // "/ai/health" really is the health of the AI.
+    const leading = parts.slice(0, i).filter((w) => !PLUMBING.test(w));
+    const trimmed = leading.filter((w) => !isJobWord(w));
+    const before = (trimmed.length ? trimmed : leading)
       .map(proper)
       .filter(Boolean)
       .join(" ");
@@ -310,15 +314,21 @@ export function featureOf(path: string, code: string): string | null {
   const from = [...meaningful(code), ...path.split("/")].map((s) =>
     s.replace(/\.(py|ts|tsx|js|jsx|mjs|cjs)$/i, "").toLowerCase(),
   );
+  // Category first. Eight separate one-item groups, one per social network,
+  // is worse than a single "Importing" group with eight things in it.
   for (const part of from) {
-    if (part in PROPER && PROPER[part]) return PROPER[part];
-  }
-  for (const part of from) {
-    if (/^(auth|login|signin|signup|session|account)$/.test(part)) return "Accounts";
-    if (/^(billing|payment|checkout|stripe|subscription)$/.test(part)) return "Payments";
     if (/^(import|ingest)$/.test(part)) return "Importing";
+    if (/^(export|download)$/.test(part)) return "Exporting";
+    if (/^(auth|login|signin|signup|session|account|password)$/.test(part)) return "Accounts";
+    if (/^(billing|payment|checkout|stripe|subscription)$/.test(part)) return "Payments";
     if (/^(dashboard|admin)$/.test(part)) return "Dashboard";
-    if (/^(health|status|metrics)$/.test(part)) return "Health checks";
+    if (/^(health|healthz|status|metrics)$/.test(part)) return "Health checks";
+  }
+  // Otherwise the outside service it talks to is the most useful label.
+  for (const part of from) {
+    const name = PROPER[part];
+    // Skip the entries that expand to a description rather than a brand.
+    if (name && !name.startsWith("the ") && !name.includes("-")) return name;
   }
   return null;
 }

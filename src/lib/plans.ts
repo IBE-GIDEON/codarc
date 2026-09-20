@@ -36,7 +36,7 @@ export const PLANS: Plan[] = [
       "5 people, sharing the same map",
       "Unlimited changes",
       "Faster reading of big projects",
-      "Exports for handing work to a developer",
+      "Handover pack — your whole app written out in plain English",
       "Private deployment on request",
     ],
     featured: true,

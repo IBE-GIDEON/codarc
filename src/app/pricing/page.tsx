@@ -67,7 +67,8 @@ const COMPARISON: {
       { label: "People on the account", solo: "1", studio: "5" },
       { label: "Shared maps", solo: null, studio: true },
       {
-        label: "Exports for handing work to a developer",
+        label: "Handover pack",
+        note: "Your whole app written out in plain English, as a PDF or a file",
         solo: null,
         studio: true,
       },
