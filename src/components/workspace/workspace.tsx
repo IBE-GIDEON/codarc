@@ -243,6 +243,16 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
       },
     },
     {
+      id: "impact",
+      target: "impact",
+      placement: "left",
+      title: "What breaks if you touch it",
+      body: "Before you change anything, Codarc tells you what else leans on this piece and how risky it is. Click any of them to jump straight there.",
+      before: () => {
+        if (demoNode) setSelectedId(demoNode.id);
+      },
+    },
+    {
       id: "change",
       target: "change",
       placement: "left",
@@ -339,6 +349,7 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
               key={selected.id}
               node={selected}
               map={map}
+              onSelect={pick}
               onClose={() => setSelectedId(null)}
             />
           )}

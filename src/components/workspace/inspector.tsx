@@ -13,6 +13,7 @@ import {
 import type { GraphNode, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
 import { DiffView, type ProposalView } from "@/components/workspace/diff-view";
+import { ImpactPanel } from "@/components/workspace/impact-panel";
 import { Button, IconButton } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { GithubMark } from "@/components/brand-marks";
@@ -71,10 +72,12 @@ export function Inspector({
   node,
   map,
   onClose,
+  onSelect,
 }: {
   node: GraphNode;
   map: RepoMap;
   onClose: () => void;
+  onSelect: (id: string) => void;
 }) {
   // The parent keys this by node id, so selecting another node remounts and
   // the draft resets on its own.
@@ -239,6 +242,10 @@ export function Inspector({
             </span>
           </a>
         </div>
+
+        {phase.at === "idle" && (
+          <ImpactPanel map={map} node={node} onSelect={onSelect} />
+        )}
 
         {node.related.length > 0 && phase.at === "idle" && (
           <div className="mt-4">

@@ -44,6 +44,12 @@ export type GraphNode = {
   line: number;
   /** Extra files this node's change would likely touch. */
   related: string[];
+  /**
+   * Ids of the nodes that directly depend on this one, from the *complete*
+   * edge set — the drawn edges are trimmed for legibility, and blast radius
+   * must never be computed from a picture that left things out.
+   */
+  dependents: string[];
   x: number;
   y: number;
 };

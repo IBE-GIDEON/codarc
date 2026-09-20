@@ -171,6 +171,11 @@ export function toMarkdown(h: Handover): string {
       if (p.usedByNames.length) {
         out.push(`- **Relied on by:** ${p.usedByNames.join(", ")}`);
       }
+      if (p.usedByNames.length >= 4) {
+        out.push(
+          `- ⚠️ **Change carefully** — ${p.usedByNames.length} other parts of the app lean on this.`,
+        );
+      }
       out.push("");
     }
   }

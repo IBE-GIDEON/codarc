@@ -137,7 +137,7 @@ function lineOf(src: string, index: number) {
 
 /* --------------------------------------------------------------- findings */
 
-type Found = Omit<GraphNode, "x" | "y" | "related">;
+type Found = Omit<GraphNode, "x" | "y" | "related" | "dependents">;
 
 /**
  * Routers are almost always mounted under a prefix, so a bare "/" in
@@ -720,6 +720,7 @@ export async function analyzeRepo(
         ? logicSummary(f.code, referenceCount.get(f.file) ?? 0)
         : f.summary,
     related: [...(importGraph.get(f.file) ?? [])].slice(0, 4),
+    dependents: [],
     x: 0,
     y: 0,
   }));
@@ -801,6 +802,18 @@ export async function analyzeRepo(
         }
       }
     }
+  }
+
+  // Blast radius is answered from every edge we found, not the handful we
+  // choose to draw. Recorded here, before the trim below.
+  const dependentsOf = new Map<string, Set<string>>();
+  for (const e of edges) {
+    const set = dependentsOf.get(e.to) ?? new Set<string>();
+    set.add(e.from);
+    dependentsOf.set(e.to, set);
+  }
+  for (const n of nodes) {
+    n.dependents = [...(dependentsOf.get(n.id) ?? [])];
   }
 
   // A file with five routes importing four helpers yields twenty lines, which
