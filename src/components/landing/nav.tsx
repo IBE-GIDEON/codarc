@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 const links = [
   ["How it works", "#how"],
   ["What it does", "#what"],
-  ["Pricing", "#pricing"],
+  ["Pricing", "/pricing"],
 ];
 
 export function Nav() {

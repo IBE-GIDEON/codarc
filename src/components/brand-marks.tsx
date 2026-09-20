@@ -8,3 +8,12 @@ export function GithubMark({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** The X (formerly Twitter) mark. */
+export function XMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className={cn("size-4", className)} aria-hidden>
+      <path d="M9.52 6.78 15.48 0h-1.41L8.89 5.89 4.76 0H0l6.25 8.9L0 16h1.41l5.47-6.22L11.24 16H16L9.52 6.78ZM7.6 8.98l-.63-.89L1.92 1.04h2.17l4.07 5.72.63.89 5.29 7.43h-2.17L7.6 8.98Z" />
+    </svg>
+  );
+}

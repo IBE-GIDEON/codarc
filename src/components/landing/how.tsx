@@ -1,4 +1,6 @@
-import { Check, GitPullRequest, Link2, MousePointer2 } from "lucide-react";
+"use client";
+
+import * as React from "react";
 import {
   Container,
   Eyebrow,
@@ -7,52 +9,91 @@ import {
   SectionTitle,
 } from "@/components/landing/shared";
 import { Reveal } from "@/components/landing/reveal";
-import { GithubMark } from "@/components/brand-marks";
+import {
+  ApproveVisual,
+  ConnectVisual,
+  MapVisual,
+  PointVisual,
+} from "@/components/landing/how-visuals";
 import { cn } from "@/lib/cn";
 
-function Step({
-  n,
-  title,
-  body,
-  visual,
-  delay,
-}: {
-  n: string;
-  title: string;
-  body: string;
-  visual: React.ReactNode;
-  delay: number;
-}) {
-  return (
-    <Reveal delay={delay} className="flex">
-      <div
-        className={cn(
-          "lift flex flex-1 flex-col overflow-hidden rounded-xl bg-sunken",
-        )}
-      >
-        <div className="p-6 pb-0">
-          <div className="mb-3 flex size-6 items-center justify-center rounded-full bg-[rgb(var(--ink)/0.07)] font-mono text-[11px] text-secondary">
-            {n}
-          </div>
-          <h3 className="text-[18px] font-semibold tracking-[-0.015em] text-primary">
-            {title}
-          </h3>
-          <p className="mt-1.5 text-[14px] leading-[1.55] text-secondary">
-            {body}
-          </p>
-        </div>
-        <div className="mt-6 flex-1 px-6 pb-6">{visual}</div>
-      </div>
-    </Reveal>
-  );
-}
+const STEPS = [
+  {
+    n: "1",
+    title: "Point it at your app",
+    body: "Give Codarc permission to look at a project you already keep on GitHub. If it's public you can paste the link and skip signing up entirely.",
+    visual: <ConnectVisual />,
+  },
+  {
+    n: "2",
+    title: "Watch it draw your app",
+    body: "It reads everything and lays the whole thing out as a picture — the pages people see, the places requests arrive, the parts doing the work, and where your information is kept.",
+    visual: <MapVisual />,
+  },
+  {
+    n: "3",
+    title: "Say what you want different",
+    body: "Click the box you care about and describe the change the way you'd explain it to a friend. You never say which file, because the box already knows.",
+    visual: <PointVisual />,
+  },
+  {
+    n: "4",
+    title: "Approve it, or don't",
+    body: "Codarc shows you what would be different in plain words before anything happens. Your live app is untouched until you say yes.",
+    visual: <ApproveVisual />,
+  },
+];
 
 export function How() {
+  const [active, setActive] = React.useState(0);
+  const hostRef = React.useRef<HTMLDivElement>(null);
+
+  // Whichever step is nearest the middle of the screen owns the panel.
+  // Measured straight from scroll position: an IntersectionObserver band thin
+  // enough to hold one step at a time never reaches a useful threshold when
+  // the steps are themselves taller than the viewport.
+  //
+  // Deliberately no requestAnimationFrame — it doesn't run in a hidden tab,
+  // which leaves the panel stuck on whatever it showed last. Four rect reads
+  // per scroll is cheap enough to just do.
+  React.useEffect(() => {
+    const measure = () => {
+      const middle = window.innerHeight / 2;
+      let nearest = 0;
+      let shortest = Infinity;
+
+      const steps =
+        hostRef.current?.querySelectorAll<HTMLElement>("[data-step]") ?? [];
+
+      steps.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const distance = Math.abs(r.top + r.height / 2 - middle);
+        if (distance < shortest) {
+          shortest = distance;
+          nearest = i;
+        }
+      });
+
+      setActive(nearest);
+    };
+
+    // Deferred rather than called here, so this isn't a synchronous setState
+    // in an effect body.
+    const initial = window.setTimeout(measure, 0);
+    window.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      window.clearTimeout(initial);
+      window.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
   return (
     <Section id="how" className="scroll-mt-16">
       <Container>
         <div className="max-w-[700px]">
-          <Reveal as="div">
+          <Reveal>
             <Eyebrow>How it works</Eyebrow>
             <SectionTitle>
               From your code to a finished change, in four steps.
@@ -60,127 +101,72 @@ export function How() {
           </Reveal>
           <Reveal delay={80}>
             <Lede>
-              No code editor. No terminal. No hunting through forty files you
-              have never opened to find the one you need.
+              No code editor. No terminal. Nothing you have to learn first. If
+              you can describe what you want, you can do this.
             </Lede>
           </Reveal>
         </div>
 
-        <div className="mt-12 grid gap-3 md:grid-cols-2">
-          <Step
-            n="1"
-            delay={0}
-            title="Point it at your app"
-            body="Give Codarc permission to read a project you already keep on GitHub. If it's public, paste the link and skip signing up entirely."
-            visual={
-              <div className="space-y-2">
-                <div className="flex h-10 items-center gap-2 rounded-md bg-raised px-3 shadow-card">
-                  <GithubMark className="size-4 text-primary" />
-                  <span className="text-[13px] font-medium text-primary">
-                    Continue with GitHub
-                  </span>
-                </div>
-                <div className="flex h-10 items-center gap-2 rounded-md bg-page px-3 shadow-[inset_0_0_0_1px_var(--border)]">
-                  <Link2 className="size-4 text-tertiary" />
-                  <span className="font-mono text-[12px] text-tertiary">
-                    github.com/you/your-app
-                  </span>
-                </div>
-              </div>
-            }
-          />
-
-          <Step
-            n="2"
-            delay={70}
-            title="Watch it draw your app"
-            body="Codarc reads everything and lays it out: the pages people see, the places requests arrive, the parts doing the work, and where your information is kept."
-            visual={
-              <div className="canvas-grid h-[118px] rounded-md p-3 shadow-[inset_0_0_0_1px_var(--border)]">
-                <div className="flex h-full items-center justify-between gap-2">
-                  {(
-                    [
-                      ["var(--brand-purple)", ["Sign in", "My profile", "Pay"]],
-                      ["var(--brand-blue)", ["Accounts", "Billing"]],
-                      ["var(--brand-amber)", ["Customer", "Order"]],
-                    ] as const
-                  ).map(([hue, items], i) => (
-                    <div key={i} className="flex flex-1 flex-col gap-1.5">
-                      {items.map((label) => (
-                        <div
-                          key={label}
-                          className="flex items-center gap-1.5 rounded-sm bg-raised px-1.5 py-1 shadow-card"
-                        >
-                          <span
-                            className="h-3 w-[3px] shrink-0 rounded-full"
-                            style={{ background: hue }}
-                          />
-                          <span className="truncate text-[9px] text-secondary">
-                            {label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            }
-          />
-
-          <Step
-            n="3"
-            delay={0}
-            title="Say what you want different"
-            body="Click the box you care about and describe the change the way you'd explain it to a person. You never have to say which file — Codarc already knows."
-            visual={
-              <div className="relative rounded-md bg-raised p-3 shadow-card">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-4 w-[4px] rounded-full"
-                    style={{ background: "var(--brand-blue)" }}
-                  />
-                  <span className="text-[11.5px] font-medium text-primary">
-                    Sign-in logic
-                  </span>
-                  <MousePointer2 className="ml-auto size-3.5 text-accent" />
-                </div>
-                <div className="mt-2 rounded-sm bg-sunken p-2 shadow-[inset_0_0_0_1px_var(--border)]">
-                  <span className="text-[12px] text-primary">
-                    Lock someone out after 5 failed tries
-                  </span>
-                  <span className="caret ml-px inline-block h-3 w-px translate-y-[2px] bg-accent" />
-                </div>
-              </div>
-            }
-          />
-
-          <Step
-            n="4"
-            delay={70}
-            title="Approve it, or don't"
-            body="You see exactly what would change before anything happens. Codarc never touches your live app — it hands you a proposal you can accept, edit or throw away."
-            visual={
-              <div className="rounded-md bg-raised p-3 shadow-card">
-                <div className="flex items-center gap-2">
-                  <GitPullRequest className="size-4 text-c-green" />
-                  <span className="text-[12px] font-medium text-primary">
-                    Lock out repeated sign-in attempts
-                  </span>
-                  <span className="ml-auto rounded-full bg-c-green-bg px-1.5 py-px text-[10px] font-medium text-c-green">
-                    waiting for you
-                  </span>
-                </div>
-                <div className="mt-2 space-y-1 font-mono text-[10px]">
-                  <div className="flex items-center gap-1.5 text-c-green">
-                    <Check className="size-3" /> 6 lines added
+        <div className="mt-14 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] md:gap-14">
+          {/* left — scrolls */}
+          <div ref={hostRef}>
+            {STEPS.map((step, i) => (
+              <div
+                key={step.n}
+                data-step={i}
+                className="md:flex md:min-h-[78vh] md:flex-col md:justify-center"
+              >
+                <div
+                  className={cn(
+                    "transition-opacity duration-500 ease-[var(--ease-soft)]",
+                    // Dim the steps you aren't on, so the eye knows where it is.
+                    "md:opacity-35",
+                    i === active && "md:opacity-100",
+                  )}
+                >
+                  <div className="flex size-6 items-center justify-center rounded-full bg-[rgb(var(--ink)/0.07)] font-mono text-[11px] text-secondary">
+                    {step.n}
                   </div>
-                  <div className="flex items-center gap-1.5 text-c-green">
-                    <Check className="size-3" /> 2 files touched
-                  </div>
+                  <h3 className="mt-3.5 text-[22px] leading-[1.25] font-semibold tracking-[-0.02em] text-primary md:text-[26px]">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2.5 max-w-[46ch] text-[15px] leading-[1.6] text-secondary md:text-[16px]">
+                    {step.body}
+                  </p>
                 </div>
+
+                {/* On a phone there's no room to pin anything — the picture
+                    simply follows its own step. */}
+                <div className="mt-5 h-[300px] md:hidden">{step.visual}</div>
+
+                {i < STEPS.length - 1 && (
+                  <div className="h-px w-full bg-line md:hidden" />
+                )}
               </div>
-            }
-          />
+            ))}
+          </div>
+
+          {/* right — stays put, swaps picture */}
+          <div className="hidden md:block">
+            {/* Centred in the viewport rather than pinned under the nav, so the
+                picture sits opposite whichever step you are reading. */}
+            <div className="sticky top-[calc(50vh-212px)] h-[424px]">
+              {STEPS.map((step, i) => (
+                <div
+                  key={step.n}
+                  aria-hidden={i !== active}
+                  className={cn(
+                    "absolute inset-0 transition-all duration-500 ease-[var(--ease-soft)]",
+                    i === active
+                      ? "translate-y-0 opacity-100"
+                      : "pointer-events-none translate-y-2 opacity-0",
+                  )}
+                >
+                  {step.visual}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </Container>
     </Section>

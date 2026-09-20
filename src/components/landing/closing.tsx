@@ -1,16 +1,7 @@
-import { Wordmark } from "@/components/logo";
 import { Container, Section } from "@/components/landing/shared";
+import { SiteFooter } from "@/components/landing/site-footer";
 import { RepoInput } from "@/components/landing/repo-input";
 import { Reveal } from "@/components/landing/reveal";
-
-const cols = [
-  {
-    title: "Product",
-    links: ["How it works", "Pricing", "Changelog", "Status"],
-  },
-  { title: "Resources", links: ["Docs", "Supported stacks", "Security", "API"] },
-  { title: "Company", links: ["About", "Contact", "Terms", "Privacy"] },
-];
 
 export function Closing() {
   return (
@@ -41,47 +32,7 @@ export function Closing() {
         </Container>
       </Section>
 
-      <footer className="bg-sunken py-14">
-        <Container>
-          <div className="flex flex-col gap-10 md:flex-row md:justify-between">
-            <div className="max-w-[300px]">
-              <Wordmark size="md" />
-              <p className="mt-3 text-[13.5px] leading-[1.55] text-tertiary">
-                You shouldn&apos;t have to read forty files to change one thing.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-12 gap-y-8 sm:grid-cols-3">
-              {cols.map((c) => (
-                <div key={c.title}>
-                  <div className="mb-3 text-[12px] font-medium text-tertiary">
-                    {c.title}
-                  </div>
-                  <ul className="space-y-2">
-                    {c.links.map((l) => (
-                      <li key={l}>
-                        <a
-                          href="#"
-                          className="text-[13.5px] text-secondary hover:text-primary"
-                        >
-                          {l}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-12 flex flex-col gap-2 pt-6 text-[12.5px] text-tertiary shadow-[inset_0_1px_0_0_var(--border)] sm:flex-row sm:items-center sm:justify-between">
-            <span>© {new Date().getFullYear()} Codarc</span>
-            <a href="/design" className="hover:text-secondary">
-              Design language
-            </a>
-          </div>
-        </Container>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

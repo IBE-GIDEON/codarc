@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Container, Frame, Highlight } from "@/components/landing/shared";
 import { ProductShot } from "@/components/landing/product-shot";
 import { Reveal } from "@/components/landing/reveal";
-
-const stacks = ["FastAPI", "Next.js", "Django", "Express", "Flask", "Prisma"];
+import { StackWall } from "@/components/landing/stack-wall";
 
 export function Hero() {
   return (
@@ -22,9 +21,9 @@ export function Hero() {
       <Container className="relative">
         <div className="mx-auto max-w-[940px] text-center">
           <Reveal as="h1" className="text-balance text-[38px] leading-[1.08] font-bold tracking-[-0.035em] text-primary sm:text-[50px] md:text-[58px]">
-            See how your own app works.
+            Codarc is the visual representation
             <br />
-            Then change it by <Highlight>pointing</Highlight>
+            of the <Highlight>codebase</Highlight> you already built.
           </Reveal>
 
           <Reveal
@@ -69,20 +68,8 @@ export function Hero() {
           />
         </Reveal>
 
-        <Reveal delay={80} className="mt-14 flex flex-col items-center gap-4">
-          <p className="text-[13px] text-tertiary">
-            Reads the tools most AI-built apps are made of
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-            {stacks.map((s) => (
-              <span
-                key={s}
-                className="text-[15px] font-medium tracking-[-0.01em] text-ghost"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
+        <Reveal delay={80}>
+          <StackWall className="mt-16" />
         </Reveal>
       </Container>
     </section>

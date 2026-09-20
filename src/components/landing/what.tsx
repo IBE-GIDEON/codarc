@@ -1,12 +1,4 @@
 import {
-  EyeOff,
-  GitPullRequest,
-  LayoutGrid,
-  MessageSquareCode,
-  ScanLine,
-  ShieldCheck,
-} from "lucide-react";
-import {
   Container,
   Eyebrow,
   Lede,
@@ -14,37 +6,52 @@ import {
   SectionTitle,
 } from "@/components/landing/shared";
 import { Reveal } from "@/components/landing/reveal";
+import {
+  DescribeVisual,
+  LayoutVisual,
+  PrivacyVisual,
+  ReviewVisual,
+  SafeVisual,
+  ScopeVisual,
+} from "@/components/landing/what-visuals";
+import { cn } from "@/lib/cn";
 
-const items = [
+const CELLS = [
   {
-    icon: LayoutGrid,
     title: "Your layout stays put",
-    body: "Drag the boxes wherever they make sense to you. When Codarc re-reads your app, your arrangement survives — it never shuffles everything back.",
+    body: "Drag the boxes wherever they make sense to you. Re-reading your app never shuffles them back.",
+    visual: <LayoutVisual />,
+    span: "lg:col-span-2",
   },
   {
-    icon: MessageSquareCode,
-    title: "You describe what, never where",
-    body: "The box you clicked is attached to real files, so Codarc already knows where to look. You just say what should be different.",
+    title: "You say what, never where",
+    body: "The box you clicked is already attached to the right files.",
+    visual: <DescribeVisual />,
+    span: "",
   },
   {
-    icon: ScanLine,
     title: "Nothing moves without you",
-    body: "Every change is shown to you first, in plain terms and in full. Nothing is applied because software felt confident about it.",
+    body: "Every change is shown in plain words before it happens.",
+    visual: <ReviewVisual />,
+    span: "",
   },
   {
-    icon: GitPullRequest,
     title: "Your live app is never touched",
-    body: "Changes arrive as a proposal on a separate copy. Your working app carries on exactly as it was until you say yes.",
+    body: "Changes wait on a copy. What your customers use carries on exactly as it was until you say yes.",
+    visual: <SafeVisual />,
+    span: "lg:col-span-2",
   },
   {
-    icon: EyeOff,
     title: "Your code is not training data",
-    body: "We read your project to answer your question and that's the end of it. Nothing is kept to train a model, ever.",
+    body: "Read to answer your question, then gone.",
+    visual: <PrivacyVisual />,
+    span: "",
   },
   {
-    icon: ShieldCheck,
     title: "Only the projects you pick",
-    body: "Codarc sees the projects you choose and nothing else, and you can take that access away in one click whenever you want.",
+    body: "Codarc sees what you hand it and nothing else. Take it back in one click.",
+    visual: <ScopeVisual />,
+    span: "lg:col-span-2",
   },
 ];
 
@@ -66,16 +73,21 @@ export function What() {
         </div>
 
         <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map(({ icon: Icon, title, body }, i) => (
-            <Reveal key={title} delay={(i % 3) * 70} className="flex">
-              <div className="lift flex-1 rounded-xl bg-page p-5 shadow-card hover:shadow-popover">
-                <Icon className="size-[18px] text-tertiary" strokeWidth={1.75} />
-                <h3 className="mt-3.5 text-[15px] font-semibold tracking-[-0.01em] text-primary">
-                  {title}
-                </h3>
-                <p className="mt-1.5 text-[13.5px] leading-[1.55] text-secondary">
-                  {body}
-                </p>
+          {CELLS.map((cell, i) => (
+            <Reveal key={cell.title} delay={(i % 3) * 70} className={cn("flex", cell.span)}>
+              <div className="lift flex flex-1 flex-col overflow-hidden rounded-xl bg-page shadow-card hover:shadow-popover">
+                {/* picture first — it's doing the explaining */}
+                <div className="flex min-h-[152px] flex-1 items-center justify-center p-5">
+                  <div className="w-full">{cell.visual}</div>
+                </div>
+                <div className="p-5 pt-0">
+                  <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-primary">
+                    {cell.title}
+                  </h3>
+                  <p className="mt-1 text-[13.5px] leading-[1.55] text-secondary">
+                    {cell.body}
+                  </p>
+                </div>
               </div>
             </Reveal>
           ))}
