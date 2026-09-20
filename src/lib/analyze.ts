@@ -12,8 +12,11 @@ import {
 import {
   dataSummary,
   dataTitle,
+  featureOf,
   logicSummary,
-  logicTitle,
+  logicTitleFromPath,
+  plural,
+  purposeTitle,
   routeSummary,
   routeTitle,
   screenSummary,
@@ -189,7 +192,7 @@ function pyRoutes(path: string, src: string): Found[] {
     out.push({
       id: `door:${path}:${method}:${route}`,
       kind: "door",
-      title: routeTitle(method, route),
+      title: purposeTitle(method, route) ?? routeTitle(method, route),
       code: `${method} ${route}`,
       summary: routeSummary(method, route),
       file: path,
@@ -206,7 +209,7 @@ function pyRoutes(path: string, src: string): Found[] {
       out.push({
         id: `door:${path}:${method}:${route}`,
         kind: "door",
-        title: routeTitle(method, route),
+        title: purposeTitle(method, route) ?? routeTitle(method, route),
         code: `${method} ${route}`,
         summary: routeSummary(method, route),
         file: path,
@@ -222,7 +225,7 @@ function pyRoutes(path: string, src: string): Found[] {
       out.push({
         id: `door:${path}:ANY:${route}`,
         kind: "door",
-        title: routeTitle("GET", route),
+        title: purposeTitle("GET", route) ?? routeTitle("GET", route),
         code: route,
         summary: routeSummary("GET", route),
         file: path,
@@ -237,7 +240,7 @@ function pyRoutes(path: string, src: string): Found[] {
       out.push({
         id: `door:${path}:SET:${route}`,
         kind: "door",
-        title: routeTitle("GET", route),
+        title: purposeTitle("GET", route) ?? routeTitle("GET", route),
         code: route,
         summary: `The full set of read, create, update and delete addresses for ${route}.`,
         file: path,
@@ -303,7 +306,7 @@ function tsRoutes(path: string, src: string): Found[] {
       out.push({
         id: `door:${path}:${method}`,
         kind: "door",
-        title: routeTitle(method, url),
+        title: purposeTitle(method, url) ?? routeTitle(method, url),
         code: `${method} ${url}`,
         summary: routeSummary(method, url),
         file: path,
@@ -321,7 +324,7 @@ function tsRoutes(path: string, src: string): Found[] {
     out.push({
       id: `door:${path}`,
       kind: "door",
-      title: routeTitle("GET", url),
+      title: purposeTitle("GET", url) ?? routeTitle("GET", url),
       code: url,
       summary: `Answers requests sent to ${url}.`,
       file: path,
@@ -339,7 +342,7 @@ function tsRoutes(path: string, src: string): Found[] {
     out.push({
       id: `door:${path}:${method}:${url}`,
       kind: "door",
-      title: routeTitle(method, url),
+      title: purposeTitle(method, url) ?? routeTitle(method, url),
       code: `${method} ${url}`,
       summary: routeSummary(method, url),
       file: path,
@@ -442,7 +445,7 @@ function logicNode(path: string, src: string): Found | null {
   return {
     id: `logic:${path}`,
     kind: "logic",
-    title: logicTitle(base),
+    title: logicTitleFromPath(path),
     code: base,
     summary: "",
     file: path,
@@ -488,6 +491,57 @@ function detectStacks(files: Map<string, string>, paths: string[]): string[] {
   return [...found];
 }
 
+
+/* ------------------------------------------------------- telling the story */
+
+/**
+ * A paragraph anyone can read. Built from the graph rather than an LLM so it
+ * costs nothing and works on every deployment — the first thing a customer
+ * wants is "what even is this", and they shouldn't have to pay to find out.
+ */
+function writeOverview(
+  nodes: GraphNode[],
+  features: { name: string; count: number }[],
+  stacks: string[],
+): string {
+  const count = (kind: NodeKind) => nodes.filter((n) => n.kind === kind).length;
+  const screens = count("screen");
+  const doors = count("door");
+  const data = count("data");
+
+  const bits: string[] = [];
+
+  const top = features.slice(0, 4).map((f) => f.name);
+  if (top.length >= 2) {
+    const list =
+      top.length === 2
+        ? top.join(" and ")
+        : `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}`;
+    bits.push(`This app is mostly about ${list}.`);
+  } else if (top.length === 1) {
+    bits.push(`This app is mostly about ${top[0]}.`);
+  }
+
+  const parts: string[] = [];
+  if (screens) parts.push(`${plural(screens, "page")} people can visit`);
+  if (doors) parts.push(`${plural(doors, "place")} where requests come in`);
+  if (data) parts.push(`${plural(data, "kind")} of information it stores`);
+
+  if (parts.length) {
+    const list =
+      parts.length === 1
+        ? parts[0]
+        : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+    bits.push(`It has ${list}.`);
+  }
+
+  if (stacks.length) {
+    bits.push(`It was built with ${stacks.slice(0, 3).join(", ")}.`);
+  }
+
+  return bits.join(" ") || "We read this project but couldn't work out its shape.";
+}
+
 /* ----------------------------------------------------------------- layout */
 
 /**
@@ -520,9 +574,15 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
   columns.forEach((kind, col) => {
     const list = byKind.get(kind)!;
     if (col === 0) {
-      list.sort((a, b) => a.title.localeCompare(b.title));
+      list.sort(
+        (a, b) =>
+          (a.feature ?? "~").localeCompare(b.feature ?? "~") ||
+          a.title.localeCompare(b.title),
+      );
     } else {
-      // Barycentre: sit each node next to whatever points at it.
+      // Barycentre: sit each node next to whatever points at it. Feature wins
+      // the tie, so a repo's Reddit pieces end up on the same rows rather than
+      // scattered down three columns.
       const weight = (n: GraphNode) => {
         const parents = (incoming.get(n.id) ?? [])
           .map((id) => rowOf.get(id))
@@ -531,7 +591,12 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
           ? parents.reduce((a, b) => a + b, 0) / parents.length
           : Number.MAX_SAFE_INTEGER;
       };
-      list.sort((a, b) => weight(a) - weight(b) || a.title.localeCompare(b.title));
+      list.sort(
+        (a, b) =>
+          weight(a) - weight(b) ||
+          (a.feature ?? "~").localeCompare(b.feature ?? "~") ||
+          a.title.localeCompare(b.title),
+      );
     }
     list.forEach((n, row) => rowOf.set(n.id, row));
   });
@@ -649,6 +714,7 @@ export async function analyzeRepo(
 
   const nodes: GraphNode[] = kept.map((f) => ({
     ...f,
+    feature: featureOf(f.file, f.code) ?? undefined,
     summary:
       f.kind === "logic"
         ? logicSummary(f.code, referenceCount.get(f.file) ?? 0)
@@ -657,6 +723,56 @@ export async function analyzeRepo(
     x: 0,
     y: 0,
   }));
+
+
+  // Three boxes all called "Shared logic" reads as broken software. Where a
+  // title repeats, find the word that actually distinguishes them — a path
+  // segment one has and the others don't — and put that in the name.
+  const byTitle = new Map<string, GraphNode[]>();
+  for (const n of nodes) {
+    const list = byTitle.get(n.title) ?? [];
+    list.push(n);
+    byTitle.set(n.title, list);
+  }
+
+  const wordsOf = (n: GraphNode) =>
+    new Set(
+      `${n.code} ${n.file}`
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 2 && !/^(api|get|post|put|patch|delete|src|app|the|route|index|ts|tsx|js|py)$/.test(w)),
+    );
+
+  for (const [, group] of byTitle) {
+    if (group.length < 2) continue;
+    const sets = group.map(wordsOf);
+
+    group.forEach((n, i) => {
+      const mine = sets[i];
+      const others = sets.filter((_, j) => j !== i);
+      const unique = [...mine].find((w) => others.every((o) => !o.has(w)));
+
+      const qualifier =
+        unique ??
+        n.feature ??
+        n.file.split("/").slice(-2, -1)[0] ??
+        null;
+      if (!qualifier) return;
+      if (n.title.toLowerCase().includes(qualifier.toLowerCase())) return;
+
+      const pretty = qualifier.replace(/[_-]+/g, " ");
+      n.title = `${n.title} · ${pretty.charAt(0).toUpperCase()}${pretty.slice(1)}`;
+    });
+  }
+
+  const featureTally = new Map<string, number>();
+  for (const n of nodes) {
+    if (!n.feature) continue;
+    featureTally.set(n.feature, (featureTally.get(n.feature) ?? 0) + 1);
+  }
+  const features = [...featureTally]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
 
   const rank = new Map(KIND_ORDER.map((k, i) => [k, i]));
   const nodesByFile = new Map<string, GraphNode[]>();
@@ -689,7 +805,7 @@ export async function analyzeRepo(
 
   // A file with five routes importing four helpers yields twenty lines, which
   // reads as noise. Keep each node's strongest few connections instead.
-  const MAX_OUT = 3;
+  const MAX_OUT = 2;
   const outgoing = new Map<string, GraphEdge[]>();
   for (const e of edges) {
     const list = outgoing.get(e.from) ?? [];
@@ -712,6 +828,8 @@ export async function analyzeRepo(
   return {
     owner,
     repo,
+    overview: writeOverview(nodes, features, detectStacks(files, paths)),
+    features,
     branch: meta.defaultBranch,
     description: meta.description,
     stacks: detectStacks(files, paths),

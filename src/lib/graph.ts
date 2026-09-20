@@ -32,6 +32,8 @@ export const KIND_COPY: Record<
 export type GraphNode = {
   id: string;
   kind: NodeKind;
+  /** Short feature name used to group related boxes, e.g. "Reddit". */
+  feature?: string;
   /** Plain-English title, e.g. "Sign in". */
   title: string;
   /** The technical name, e.g. "POST /auth/login". Shown in mono, smaller. */
@@ -50,6 +52,10 @@ export type GraphEdge = { from: string; to: string };
 
 export type RepoMap = {
   owner: string;
+  /** A paragraph anyone can read, describing what the app is. */
+  overview: string;
+  /** The handful of things this app is mostly about. */
+  features: { name: string; count: number }[];
   repo: string;
   branch: string;
   description: string | null;

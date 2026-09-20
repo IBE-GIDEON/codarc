@@ -80,6 +80,14 @@ export function MapSidebar({
         <div className="truncate text-[11px] text-tertiary">{map.owner}</div>
       </div>
 
+      {/* The first thing anyone wants to know is "what even is this". It
+          shouldn't take a click to find out. */}
+      {map.overview && (
+        <p className="px-3 pb-3 text-[12px] leading-[1.55] text-secondary">
+          {map.overview}
+        </p>
+      )}
+
       {map.stacks.length > 0 && (
         <div className="flex flex-wrap gap-1 px-3 pb-3">
           {map.stacks.map((s) => (
