@@ -10,6 +10,7 @@ import { Tour, type TourStep } from "@/components/workspace/tour";
 import { Inspector } from "@/components/workspace/inspector";
 import { MapSidebar } from "@/components/workspace/map-sidebar";
 import { ShareDialog } from "@/components/workspace/share-dialog";
+import { PresenceStack, useLiveCursors } from "@/components/workspace/live-cursors";
 import type { Offsets } from "@/lib/share";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -180,6 +181,8 @@ export function Workspace({
   const [tourRun, setTourRun] = React.useState(0);
   const [nonce, setNonce] = React.useState(0);
   const [result, setResult] = React.useState<Result | null>(null);
+  // Studio only — the server decides, and a shared-link viewer never asks.
+  const live = useLiveCursors(owner, repo, !readOnly);
 
   // The request this render is waiting on. Anything stale is ignored, so a
   // fast retry can't land after a slow first attempt.
@@ -406,12 +409,20 @@ export function Workspace({
             storageKey={shared?.layoutKey ?? layoutKey}
             initialOffsets={shared?.offsets}
             matches={matches}
+            onWorldPointer={live.onWorldPointer}
+            overlay={live.renderCursors}
           />
         )}
 
         {shared && (
           <div className="pointer-events-none absolute top-3 left-3 z-10">
             <SharedBanner shared={shared} />
+          </div>
+        )}
+
+        {live.enabled && (
+          <div className="pointer-events-none absolute bottom-3 left-3 z-10">
+            <PresenceStack people={live.people} colours={live.colours} meId={live.me?.id} />
           </div>
         )}
 

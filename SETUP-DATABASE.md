@@ -16,7 +16,7 @@ teams. About five minutes. Do it once.
 
 You should see "Success. No rows returned." Running it twice is harmless.
 
-## 2. Get two values
+## 2. Get three values
 
 Left sidebar → **Project Settings** → **API**
 
@@ -24,6 +24,7 @@ Left sidebar → **Project Settings** → **API**
 |---|---|
 | **Project URL** | `SUPABASE_URL` |
 | **service_role** key (click Reveal) | `SUPABASE_SERVICE_ROLE_KEY` |
+| **anon** / public key | `SUPABASE_ANON_KEY` — only needed for live cursors |
 
 > ⚠️ Use **service_role**, not **anon**. And never put it anywhere a browser
 > can see it — no `NEXT_PUBLIC_` in front of the name.

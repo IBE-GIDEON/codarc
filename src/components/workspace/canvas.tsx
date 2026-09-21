@@ -28,9 +28,19 @@ export function Canvas({
   storageKey,
   matches,
   initialOffsets,
+  onWorldPointer,
+  overlay,
   ref,
 }: {
   ref?: React.Ref<CanvasHandle>;
+  /**
+   * Where the pointer is in *map* coordinates, or null when it leaves.
+   * Map coordinates, not screen ones, so two people zoomed differently still
+   * agree on which box a cursor is over.
+   */
+  onWorldPointer?: (point: { x: number; y: number } | null) => void;
+  /** Drawn inside the map layer; given the zoom so it can stay screen-sized. */
+  overlay?: (zoom: number) => React.ReactNode;
   /** Someone else's arrangement to start from — a shared map. */
   initialOffsets?: Offsets;
   map: RepoMap;
@@ -140,6 +150,13 @@ export function Canvas({
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    if (onWorldPointer && hostRef.current) {
+      const rect = hostRef.current.getBoundingClientRect();
+      onWorldPointer({
+        x: (e.clientX - rect.left - view.x) / view.k,
+        y: (e.clientY - rect.top - view.y) / view.k,
+      });
+    }
     if (drag.current) {
       const d = drag.current;
       persistLive(d.id, d.dx + (e.clientX - d.x) / view.k, d.dy + (e.clientY - d.y) / view.k);
@@ -254,6 +271,7 @@ export function Canvas({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onPointerLeave={() => onWorldPointer?.(null)}
       onWheel={onWheel}
       onClick={(e) => {
         if (e.target === e.currentTarget) onSelect(null);
@@ -364,6 +382,8 @@ export function Canvas({
             </div>
           );
         })}
+
+        {overlay?.(view.k)}
       </div>
 
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
