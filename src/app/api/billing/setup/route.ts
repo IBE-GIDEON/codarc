@@ -23,10 +23,13 @@ export async function GET() {
 
   try {
     const store = await describeStore();
-    return NextResponse.json({
-      step: "Copy these into Vercel: the store id → LEMONSQUEEZY_STORE_ID, the $29 monthly variant id → LEMONSQUEEZY_SOLO_VARIANT_ID, the $79 monthly variant id → LEMONSQUEEZY_STUDIO_VARIANT_ID.",
-      ...store,
-    });
+    const step =
+      store.products.length === 0
+        ? "This key can't see any products. Either none are made yet, or they were made in the other mode — a key made with Test mode ON only sees test products. Turn Test mode on, check both products are there and published, make a new API key while it's on, put it in Vercel, redeploy, and open this page again."
+        : store.variants.length === 0
+          ? "Products found, but no prices yet. Open each product in Lemon Squeezy, give it a monthly price, publish, then reload this page."
+          : "Copy into Vercel: the store your products are in → LEMONSQUEEZY_STORE_ID, the $29 monthly variant id → LEMONSQUEEZY_SOLO_VARIANT_ID, the $79 monthly variant id → LEMONSQUEEZY_STUDIO_VARIANT_ID. Then redeploy.";
+    return NextResponse.json({ step, ...store });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof PaymentError ? err.hint : "Lemon Squeezy didn't answer." },

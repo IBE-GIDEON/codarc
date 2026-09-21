@@ -271,9 +271,12 @@ export async function applySubscription(e: SubscriptionEvent): Promise<boolean> 
 export async function describeStore() {
   const [stores, products, variants] = await Promise.all([
     api<{ data: { id: string; attributes: { name: string; slug: string } }[] }>("/stores"),
-    api<{ data: { id: string; attributes: { name: string; store_id: number } }[] }>(
-      "/products?page[size]=100",
-    ),
+    api<{
+      data: {
+        id: string;
+        attributes: { name: string; store_id: number; status: string; test_mode?: boolean };
+      }[];
+    }>("/products?page[size]=100"),
     api<{
       data: {
         id: string;
@@ -292,6 +295,15 @@ export async function describeStore() {
   const productName = new Map(products.data.map((p) => [Number(p.id), p.attributes.name]));
   return {
     stores: stores.data.map((s) => ({ id: s.id, name: s.attributes.name })),
+    // Listed so an empty variants list can be explained: no products at all
+    // means the key can't see them (made in the other mode) or none exist yet.
+    products: products.data.map((p) => ({
+      id: p.id,
+      name: p.attributes.name,
+      store: String(p.attributes.store_id),
+      status: p.attributes.status,
+      mode: p.attributes.test_mode ? "test" : "live",
+    })),
     variants: variants.data.map((v) => ({
       id: v.id,
       product: productName.get(v.attributes.product_id) ?? `product ${v.attributes.product_id}`,
