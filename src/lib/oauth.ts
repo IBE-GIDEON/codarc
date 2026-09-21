@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { env } from "@/lib/env";
+import { installationsForUserToken } from "@/lib/github-app";
 
 /**
  * The `state` GitHub hands back carries where to return to, plus a nonce we
@@ -38,8 +39,14 @@ export type GithubUser = {
   avatar_url: string;
 };
 
-/** Swaps the one-time code for a token, then asks who it belongs to. */
-export async function identify(code: string): Promise<GithubUser | null> {
+/**
+ * Swaps the one-time code for a token, then asks who it belongs to and which
+ * companies' Codarc installs they can reach. The token itself is dropped
+ * straight after — Codarc never keeps it.
+ */
+export async function identify(
+  code: string,
+): Promise<{ user: GithubUser; orgs: { id: string; login: string }[] } | null> {
   const res = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
@@ -69,5 +76,12 @@ export async function identify(code: string): Promise<GithubUser | null> {
   });
 
   if (!who.ok) return null;
-  return (await who.json()) as GithubUser;
+  const user = (await who.json()) as GithubUser;
+
+  const orgs = (await installationsForUserToken(token.access_token).catch(() => []))
+    .filter((i) => i.accountType === "Organization")
+    .slice(0, 10)
+    .map((i) => ({ id: i.id, login: i.accountLogin }));
+
+  return { user, orgs };
 }

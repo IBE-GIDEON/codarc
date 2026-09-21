@@ -56,7 +56,7 @@ export async function GET(request: Request) {
         if (!user) throw err;
         throw new RepoError(
           `We couldn't open ${owner}/${repo}`,
-          "If it's private and it's yours, connect GitHub from your dashboard and tick this project. If someone else owns it, ask them to add you to their Studio team.",
+          "If it's private and yours, connect GitHub from your dashboard and tick this project. If it's your company's, someone who runs it on GitHub needs to connect Codarc there — and GitHub has to let you see it.",
           404,
         );
       }

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * thing to open when something isn't working.
  */
 export async function GET() {
-  const tables = ["accounts", "projects", "changes", "teams", "team_members", "team_invites"];
+  const tables = ["accounts", "projects", "changes", "teams", "team_members", "team_invites", "drafts"];
 
   let database:
     | "connected"

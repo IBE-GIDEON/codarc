@@ -1,8 +1,10 @@
 import "server-only";
 import {
+  CAN_WRITE,
   installationForRepo,
   installationToken,
   isConfigured,
+  repoRole,
   type Installation,
 } from "@/lib/github-app";
 import { entitlement } from "@/lib/accounts";
@@ -14,15 +16,18 @@ import type { User } from "@/lib/session";
  *
  * Installing the GitHub App is how someone says "Codarc may touch this". But
  * the app's key opens every repository anyone has ever installed it on, so
- * finding an installation isn't enough — it has to be on *your* account, or
- * on the account of the Studio owner whose team you're on. Without this, any
- * signed-in stranger could open a pull request on someone else's project.
- *
- * Organisation installs are left out for now: proving someone belongs to an
- * organisation needs their own GitHub token, which Codarc doesn't keep.
+ * finding an installation isn't enough. GitHub has to agree that *this
+ * person* can see the repository — which is what makes company
+ * (organisation) repos work: access there comes from the company's teams,
+ * not from owning it. Studio members also get what their owner can reach.
  */
 
-export type RepoAccess = { installation: Installation; via: "own" | "team" };
+export type RepoAccess = {
+  installation: Installation;
+  via: "own" | "github" | "team";
+  /** Can change code and open pull requests, not just look. */
+  canWrite: boolean;
+};
 
 export async function repoAccess(
   user: User | null,
@@ -32,15 +37,36 @@ export async function repoAccess(
   if (!user || !isConfigured()) return null;
 
   const installation = await installationForRepo(owner, repo);
-  if (!installation || installation.accountType !== "User") return null;
+  if (!installation) return null;
 
-  if (installation.accountId === user.id) return { installation, via: "own" };
+  // Your own account: no need to ask.
+  if (installation.accountType === "User" && installation.accountId === user.id) {
+    return { installation, via: "own", canWrite: true };
+  }
 
+  // A company repo, or someone else's you've been added to.
+  const role = await repoRole(installation.id, owner, repo, user);
+  if (role !== "none") {
+    return { installation, via: "github", canWrite: CAN_WRITE.has(role) };
+  }
+
+  // On a Studio team: whatever the owner can reach, the team can too.
   const team = await teamFor(user.id);
-  if (team && team.ownerId === installation.accountId) {
+  const teamOwner =
+    team && team.ownerId !== user.id ? team.members.find((m) => m.role === "owner") : null;
+  if (teamOwner) {
+    const ownerReaches =
+      (installation.accountType === "User" && installation.accountId === teamOwner.githubId) ||
+      CAN_WRITE.has(
+        await repoRole(installation.id, owner, repo, {
+          id: teamOwner.githubId,
+          login: teamOwner.login,
+        }),
+      );
     // The seat only counts while the owner is still paying for Studio.
-    const ent = await entitlement(user);
-    if (ent.plan === "studio") return { installation, via: "team" };
+    if (ownerReaches && (await entitlement(user)).plan === "studio") {
+      return { installation, via: "team", canWrite: true };
+    }
   }
 
   return null;

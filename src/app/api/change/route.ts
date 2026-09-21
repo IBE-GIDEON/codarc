@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { ChangeError, holdProposal, proposeChange } from "@/lib/change";
+import { ChangeError, proposeChange } from "@/lib/change";
+import { saveDraft } from "@/lib/drafts";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
 import { currentUser } from "@/lib/session";
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
 
     await recordChange(ent, `${owner}/${name}`);
 
-    const proposalId = holdProposal({
+    const proposalId = await saveDraft(user.id, {
       owner,
       repo: name,
       branch: branch || "HEAD",

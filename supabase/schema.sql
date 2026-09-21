@@ -79,6 +79,26 @@ create table if not exists team_invites (
   used_at     timestamptz
 );
 
+-- ---------------------------------------------------------------- drafts
+-- A drafted change waiting to be sent. Kept here, not in a server's memory,
+-- because the request that drafts and the one that sends can land on
+-- different servers. Gone after a day.
+create table if not exists drafts (
+  id          uuid primary key,
+  account_id  bigint not null references accounts(github_id) on delete cascade,
+  owner       text not null,
+  repo        text not null,
+  branch      text not null,
+  instruction text not null,
+  node_title  text not null,
+  proposal    jsonb not null,
+  pr_url      text,
+  pr_number   integer,
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null default (now() + interval '1 day')
+);
+create index if not exists drafts_by_expiry on drafts (expires_at);
+
 -- ------------------------------------------------------------ seat limit
 -- The app checks seats before adding someone, but two people accepting an
 -- invite at the same instant could both pass that check. This trigger is the
@@ -105,3 +125,4 @@ alter table changes       enable row level security;
 alter table teams         enable row level security;
 alter table team_members  enable row level security;
 alter table team_invites  enable row level security;
+alter table drafts        enable row level security;

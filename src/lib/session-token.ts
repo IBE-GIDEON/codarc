@@ -12,6 +12,12 @@ export type User = {
   login: string;
   name: string | null;
   avatar: string;
+  /**
+   * Companies (GitHub organisations) with Codarc installed that this person
+   * could reach when they signed in. Only a hint for the dashboard — every
+   * repository is still checked with GitHub before anything opens.
+   */
+  orgs?: { id: string; login: string }[];
   /** Issued-at, so sessions can age out. */
   at: number;
 };

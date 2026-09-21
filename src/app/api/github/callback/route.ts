@@ -38,18 +38,18 @@ export async function GET(request: Request) {
     if (!unpacked || !expected || unpacked.nonce !== expected) {
       flags.push("signin=expired");
     } else {
-      const user = await identify(code);
-      if (!user) {
+      const who = await identify(code);
+      if (!who) {
         flags.push("signin=failed");
       } else {
         const identity = {
-          id: user.id,
-          login: user.login,
-          name: user.name,
-          avatar: user.avatar_url,
+          id: who.user.id,
+          login: who.user.login,
+          name: who.user.name,
+          avatar: who.user.avatar_url,
         };
         await upsertAccount(identity);
-        session = seal(identity);
+        session = seal({ ...identity, orgs: who.orgs });
         flags.push("signin=ok");
       }
     }

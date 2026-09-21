@@ -2,7 +2,10 @@ import { ExternalLink } from "lucide-react";
 import {
   installationForUser,
   isConfigured,
+  listingToken,
   reposForInstallation,
+  roleWithToken,
+  type RepoSummary,
 } from "@/lib/github-app";
 import { ago } from "@/lib/ago";
 import { GithubMark } from "@/components/brand-marks";
@@ -18,19 +21,81 @@ function Heading({ children, action }: { children: React.ReactNode; action?: Rea
   );
 }
 
-async function load(login: string, id: number) {
-  const installation = await installationForUser(login, id);
-  if (!installation) return { installation: null, rows: [] as RepoRow[] };
-  const repos = await reposForInstallation(installation.id);
+function toRows(repos: RepoSummary[]): RepoRow[] {
   const now = Date.now();
-  const rows: RepoRow[] = repos.map((r) => ({
+  return repos.map((r) => ({
     owner: r.owner,
     name: r.name,
     isPrivate: r.isPrivate,
     description: r.description,
     updated: r.pushedAt ? ago(r.pushedAt, now) : "",
   }));
-  return { installation, rows };
+}
+
+async function load(login: string, id: number) {
+  const installation = await installationForUser(login, id);
+  if (!installation) return { installation: null, rows: [] as RepoRow[] };
+  return { installation, rows: toRows(await reposForInstallation(installation.id)) };
+}
+
+/** Runs `work` over `items`, a few at a time, keeping the order. */
+async function inBatches<T, R>(items: T[], size: number, work: (item: T) => Promise<R>) {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(...(await Promise.all(items.slice(i, i + size).map(work))));
+  }
+  return out;
+}
+
+/**
+ * A company's projects. A company's install can cover repositories this
+ * person has no business seeing, so each one is checked with GitHub first
+ * and only the ones they can reach are listed.
+ */
+export async function OrgRepos({
+  org,
+  user,
+}: {
+  org: { id: string; login: string };
+  user: { id: number; login: string };
+}) {
+  if (!isConfigured()) return null;
+
+  let rows: RepoRow[] = [];
+  try {
+    const token = await listingToken(org.id);
+    // The 40 most recently worked on is plenty to find what you're after.
+    const repos = (await reposForInstallation(org.id, token)).slice(0, 40);
+    const roles = await inBatches(repos, 8, (r) => roleWithToken(token, r.owner, r.name, user));
+    rows = toRows(repos.filter((_, i) => roles[i] !== "none"));
+  } catch (err) {
+    // Uninstalled since they signed in, most likely.
+    console.error("[dashboard] org repos", org.login, err);
+    return null;
+  }
+  if (!rows.length) return null;
+
+  const manage = `https://github.com/organizations/${encodeURIComponent(org.login)}/settings/installations/${org.id}`;
+
+  return (
+    <section className="mt-10">
+      <Heading
+        action={
+          <a
+            href={manage}
+            target="_blank"
+            rel="noreferrer"
+            className="notion-hover flex items-center gap-1 px-1.5 py-0.5 text-[12.5px] text-tertiary hover:text-secondary"
+          >
+            Choose which projects <ExternalLink className="size-3" />
+          </a>
+        }
+      >
+        From {org.login} on GitHub
+      </Heading>
+      <RepoList repos={rows} />
+    </section>
+  );
 }
 
 /** "From your GitHub" — the projects you've let Codarc see. */

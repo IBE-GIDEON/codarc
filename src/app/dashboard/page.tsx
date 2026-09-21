@@ -9,7 +9,12 @@ import { teamFor } from "@/lib/teams";
 import { DashboardSidebar, DashboardTopBar } from "@/components/dashboard/dashboard-sidebar";
 import { OpenRepo } from "@/components/dashboard/open-repo";
 import { RecentMaps } from "@/components/dashboard/recent-maps";
-import { ReposLoading, TeamRepos, YourRepos } from "@/components/dashboard/github-repos";
+import {
+  OrgRepos,
+  ReposLoading,
+  TeamRepos,
+  YourRepos,
+} from "@/components/dashboard/github-repos";
 
 export const metadata: Metadata = { title: "Home · Codarc" };
 export const dynamic = "force-dynamic";
@@ -77,6 +82,12 @@ export default async function Dashboard() {
             <Suspense fallback={<ReposLoading label="From your GitHub" />}>
               <YourRepos login={user.login} id={user.id} />
             </Suspense>
+
+            {(user.orgs ?? []).map((org) => (
+              <Suspense key={org.id} fallback={<ReposLoading label={`From ${org.login} on GitHub`} />}>
+                <OrgRepos org={org} user={{ id: user.id, login: user.login }} />
+              </Suspense>
+            ))}
 
             {teamOwner && (
               <Suspense fallback={null}>

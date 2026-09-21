@@ -209,6 +209,66 @@ export async function installationForUser(
   }
 }
 
+/** GitHub's own words for how far someone may go in a repository. */
+export type RepoRole = "admin" | "maintain" | "write" | "triage" | "read" | "none";
+
+/** Enough to change code and open a pull request. */
+export const CAN_WRITE = new Set<RepoRole>(["admin", "maintain", "write"]);
+
+/**
+ * What GitHub says this person may do in this repository — covering company
+ * (organisation) repos, where access comes from teams and base permissions
+ * rather than ownership. `token` must be an installation token that can see
+ * the repository.
+ */
+export async function roleWithToken(
+  token: string,
+  owner: string,
+  repo: string,
+  user: { id: number; login: string },
+): Promise<RepoRole> {
+  try {
+    const res = await api<{ permission?: string; role_name?: string; user?: { id: number } }>(
+      `/repos/${owner}/${repo}/collaborators/${encodeURIComponent(user.login)}/permission`,
+      token,
+    );
+    // Logins can be renamed and reused; the numeric id has to match too.
+    if (res.user?.id !== user.id) return "none";
+    const role = (res.role_name ?? res.permission ?? "none") as RepoRole;
+    return ["admin", "maintain", "write", "triage", "read"].includes(role) ? role : "none";
+  } catch {
+    return "none";
+  }
+}
+
+export async function repoRole(
+  installationId: string,
+  owner: string,
+  repo: string,
+  user: { id: number; login: string },
+): Promise<RepoRole> {
+  const token = await installationToken(installationId, {
+    repo,
+    permissions: { metadata: "read" },
+  }).catch(() => null);
+  return token ? roleWithToken(token, owner, repo, user) : "none";
+}
+
+/** Every installation this person can reach, from their own GitHub sign-in. */
+export async function installationsForUserToken(userToken: string): Promise<Installation[]> {
+  const res = await fetch("https://api.github.com/user/installations?per_page=100", {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${userToken}`,
+      "User-Agent": "codarc",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const json = (await res.json()) as { installations?: RawInstallation[] };
+  return (json.installations ?? []).map(toInstallation);
+}
+
 export type RepoSummary = {
   owner: string;
   name: string;
@@ -217,11 +277,17 @@ export type RepoSummary = {
   pushedAt: string | null;
 };
 
+/** A token that can see which repositories an installation covers, and nothing else. */
+export function listingToken(installationId: string) {
+  return installationToken(installationId, { permissions: { metadata: "read" } });
+}
+
 /** Every repository someone chose to show Codarc, busiest first. */
-export async function reposForInstallation(installationId: string): Promise<RepoSummary[]> {
-  const token = await installationToken(installationId, {
-    permissions: { metadata: "read" },
-  });
+export async function reposForInstallation(
+  installationId: string,
+  token?: string,
+): Promise<RepoSummary[]> {
+  token ??= await listingToken(installationId);
 
   const out: RepoSummary[] = [];
   // Ten pages is a thousand repositories — plenty for anyone this is for.
