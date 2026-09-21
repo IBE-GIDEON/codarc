@@ -77,14 +77,21 @@ export async function checkChangeAllowance(ent: Entitlement): Promise<Ok | Refus
   if (limit === null) return { ok: true };
 
   const used = await changesThisMonth(ent.billingId);
-  if (used >= limit) {
+  if (used < limit) return { ok: true };
+
+  // Studio's cap is a safety net, never a number on screen.
+  if (ent.limits?.changesCapHidden) {
     return {
       ok: false,
-      error: `You've used all ${limit} changes this month`,
-      hint: "Your map keeps working. Changes come back on the 1st, or Studio has no monthly limit.",
+      error: "You've made a lot of changes this month",
+      hint: "As a safety check, new changes are paused for now. Message us on X (@C0darc) and we'll switch them back on straight away. Your map keeps working.",
     };
   }
-  return { ok: true };
+  return {
+    ok: false,
+    error: `You've used all ${limit} changes this month`,
+    hint: "Your map keeps working. Changes come back on the 1st, or Studio has unlimited changes.",
+  };
 }
 
 /** Recorded only when a draft actually comes back — a failed attempt is free. */
@@ -109,6 +116,7 @@ export async function usageSummary(ent: Entitlement) {
     projects: projects ?? 0,
     projectLimit: ent.limits?.projects ?? null,
     changes,
-    changeLimit: ent.limits?.changesPerMonth ?? null,
+    // A hidden cap reads as "no limit" everywhere it's shown.
+    changeLimit: ent.limits?.changesCapHidden ? null : (ent.limits?.changesPerMonth ?? null),
   };
 }

@@ -2,7 +2,7 @@ import * as React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Check, Minus } from "lucide-react";
-import { PLANS } from "@/lib/plans";
+import { PLANS, planById } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/logo";
 import { SiteFooter } from "@/components/landing/site-footer";
@@ -48,7 +48,8 @@ const COMPARISON: {
       {
         label: "Changes a month",
         note: "One request, one proposal",
-        solo: "100",
+        // Read from the plans so this table can't drift from what's enforced.
+        solo: String(planById("solo")!.limits.changesPerMonth),
         studio: "Unlimited",
       },
       { label: "See the change before it happens", solo: true, studio: true },

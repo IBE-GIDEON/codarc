@@ -46,6 +46,7 @@ export default function Terms() {
           body: [
             "Don't try to break the service, get around its limits, resell it as your own, or use it to work on anything illegal.",
             "We may suspend an account that does, and we'll tell you why.",
+            "Unlimited changes on Studio are meant for a team's everyday work. If an account uses far more than that in a month, we may pause new changes and talk to you before switching them back on.",
           ],
         },
         {

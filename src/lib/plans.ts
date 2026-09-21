@@ -10,6 +10,12 @@ export type Limits = {
   projects: number | null;
   /** Drafted changes per calendar month. null = no limit. */
   changesPerMonth: number | null;
+  /**
+   * The cap is a quiet safety net, not something we advertise: the plan says
+   * "unlimited", the number never appears on screen, and hitting it reads as
+   * a pause to talk rather than a wall. Each change costs real money to make.
+   */
+  changesCapHidden?: boolean;
   /** People on the account, owner included. */
   seats: number;
 };
@@ -36,12 +42,12 @@ export const PLANS: Plan[] = [
     features: [
       "3 projects",
       "Redraw your app as often as you like",
-      "100 changes a month",
+      "40 changes a month",
       "Changes arrive as proposals to approve",
       "Works with Python and JavaScript apps",
     ],
     featured: false,
-    limits: { projects: 3, changesPerMonth: 100, seats: 1 },
+    limits: { projects: 3, changesPerMonth: 40, seats: 1 },
   },
   {
     id: "studio",
@@ -57,7 +63,8 @@ export const PLANS: Plan[] = [
       "Private deployment on request",
     ],
     featured: true,
-    limits: { projects: null, changesPerMonth: null, seats: MAX_SEATS },
+    // "Unlimited" on the card; 200 a month across the whole team, quietly.
+    limits: { projects: null, changesPerMonth: 200, changesCapHidden: true, seats: MAX_SEATS },
   },
 ];
 
