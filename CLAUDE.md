@@ -59,6 +59,7 @@ names become sentences; put new copy through it rather than inlining jargon.
 `src/app/api/change/route.ts` — POST, drafts a change and returns a diff
 `src/lib/access.ts` — who may read or change a repo: GitHub's own answer, or the Studio owner's
 `src/lib/drafts.ts` — drafted changes, kept in the database between draft and send
+`src/lib/payments.ts` — Lemon Squeezy: checkout, webhook, billing page. The only file that knows the provider
 `src/proxy.ts` — signed-in visitors skip the landing page for `/dashboard`
 `src/app/dashboard` — home once signed in: recent maps, your GitHub projects
 `src/app/r/[owner]/[repo]` — the workspace

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { canSignIn, currentUser } from "@/lib/session";
-import { entitlement } from "@/lib/accounts";
+import { entitlement, getAccount } from "@/lib/accounts";
+import { WaitForPlan } from "@/components/dashboard/wait-for-plan";
 import { isDbConfigured } from "@/lib/db";
 import { teamFor } from "@/lib/teams";
 import { DashboardSidebar, DashboardTopBar } from "@/components/dashboard/dashboard-sidebar";
@@ -23,17 +24,33 @@ export const dynamic = "force-dynamic";
  * Where a signed-in person starts. The landing page is for meeting Codarc;
  * this is for using it — your projects, one click from their maps.
  */
-export default async function Dashboard() {
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ paid?: string; back?: string; billing?: string }>;
+}) {
   const user = await currentUser();
   if (!user) {
     if (canSignIn()) redirect(`/api/auth/github?back=${encodeURIComponent("/dashboard")}`);
     redirect("/?site");
   }
 
-  const [ent, team] = await Promise.all([
+  const { paid, back, billing } = await searchParams;
+  const [ent, team, account] = await Promise.all([
     entitlement(user),
     isDbConfigured() ? teamFor(user.id) : Promise.resolve(null),
+    getAccount(user.id),
   ]);
+  const paysOwn = ent.via === "own";
+  const cardFailed = paysOwn && account?.plan_status === "past_due";
+  const endsOn =
+    paysOwn && account?.plan_status === "cancelled" && account.plan_ends_at
+      ? new Date(account.plan_ends_at).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+        })
+      : null;
+  const returnTo = back && back.startsWith("/") && !back.startsWith("//") && back !== "/dashboard" ? back : null;
 
   const planName = ent.plan === "studio" ? "Studio" : ent.plan === "solo" ? "Solo" : null;
   const teamOwner =
@@ -48,7 +65,13 @@ export default async function Dashboard() {
 
   return (
     <div className="flex h-dvh bg-page">
-      <DashboardSidebar user={user} planName={planName} planNote={planNote} showTeam={showTeam} />
+      <DashboardSidebar
+        user={user}
+        planName={planName}
+        planNote={planNote}
+        showTeam={showTeam}
+        paysOwn={paysOwn}
+      />
 
       <div className="min-w-0 flex-1 overflow-y-auto">
         <DashboardTopBar user={user} showTeam={showTeam} />
@@ -61,7 +84,52 @@ export default async function Dashboard() {
               Pick a project to see how it works — or paste any GitHub link.
             </p>
 
-            {!planName && (
+            {paid && planName && (
+              <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm bg-c-green-bg px-4 py-3 text-[14px] leading-6 text-primary">
+                <span>
+                  🎉 You&apos;re on {planName}. Thank you — everything is switched on.
+                </span>
+                {returnTo && (
+                  <Link href={returnTo} className="font-medium text-accent-text hover:underline">
+                    Back to where you were
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {paid && !planName && (
+              <div className="mt-6 rounded-sm bg-c-blue-bg px-4 py-3 text-[14px] leading-6 text-primary">
+                Payment received. Your plan switches on in a few seconds — this
+                page will update by itself.
+                <WaitForPlan />
+              </div>
+            )}
+
+            {cardFailed && (
+              <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm bg-c-yellow-bg px-4 py-3 text-[14px] leading-6 text-primary">
+                <span>Your last payment didn&apos;t go through. Everything still works while we try again.</span>
+                <a href="/api/billing/portal" className="font-medium text-accent-text hover:underline">
+                  Update your card
+                </a>
+              </div>
+            )}
+
+            {endsOn && (
+              <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm bg-c-gray-bg px-4 py-3 text-[14px] leading-6 text-primary">
+                <span>Your plan is cancelled and ends on {endsOn}.</span>
+                <a href="/api/billing/portal" className="font-medium text-accent-text hover:underline">
+                  Keep it
+                </a>
+              </div>
+            )}
+
+            {billing === "unavailable" && (
+              <div className="mt-6 rounded-sm bg-c-yellow-bg px-4 py-3 text-[14px] leading-6 text-primary">
+                The billing page didn&apos;t open. Nothing has changed — try again in a moment.
+              </div>
+            )}
+
+            {!planName && !paid && (
               <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm bg-c-gray-bg px-4 py-3 text-[14px] leading-6 text-primary">
                 <span>Looking at maps is free. Changing your app needs a plan.</span>
                 <Link

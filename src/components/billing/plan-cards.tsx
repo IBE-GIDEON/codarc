@@ -7,10 +7,18 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
 /**
- * The plan chooser. Payments aren't wired up yet, so picking a plan tells you
- * honestly what happens next rather than pretending to take a card.
+ * The plan chooser. Picking one opens Lemon Squeezy's payment page; someone
+ * already paying goes to their billing page instead, so nobody is billed
+ * twice by switching.
  */
-export function PlanCards({ returnTo }: { returnTo: string }) {
+export function PlanCards({
+  returnTo,
+  current = null,
+}: {
+  returnTo: string;
+  /** The plan this person pays for themselves, if any. */
+  current?: PlanId | null;
+}) {
   const [picking, setPicking] = React.useState<PlanId | null>(null);
   const [result, setResult] = React.useState<{
     error: string;
@@ -90,23 +98,45 @@ export function PlanCards({ returnTo }: { returnTo: string }) {
               ))}
             </ul>
 
-            <Button
-              variant={p.featured ? "primary" : "secondary"}
-              size="lg"
-              className="mt-7 h-10 w-full text-[14px]"
-              disabled={picking !== null}
-              onClick={() => choose(p.id)}
-            >
-              {picking === p.id ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" /> One moment
-                </>
-              ) : (
-                <>
-                  Choose {p.name} <ArrowRight className="size-3.5" />
-                </>
-              )}
-            </Button>
+            {current ? (
+              // Already paying: both cards lead to the billing page, where
+              // switching plans adjusts the one bill instead of adding one.
+              <a href="/api/billing/portal" className="mt-7 block">
+                <Button
+                  variant={current === p.id ? "secondary" : p.featured ? "primary" : "secondary"}
+                  size="lg"
+                  className="h-10 w-full text-[14px]"
+                >
+                  {current === p.id ? (
+                    <>
+                      <Check className="size-3.5" /> Your plan · manage billing
+                    </>
+                  ) : (
+                    <>
+                      Switch to {p.name} <ArrowRight className="size-3.5" />
+                    </>
+                  )}
+                </Button>
+              </a>
+            ) : (
+              <Button
+                variant={p.featured ? "primary" : "secondary"}
+                size="lg"
+                className="mt-7 h-10 w-full text-[14px]"
+                disabled={picking !== null}
+                onClick={() => choose(p.id)}
+              >
+                {picking === p.id ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> Opening the payment page
+                  </>
+                ) : (
+                  <>
+                    Choose {p.name} <ArrowRight className="size-3.5" />
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         ))}
       </div>

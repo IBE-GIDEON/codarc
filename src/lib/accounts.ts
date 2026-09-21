@@ -12,6 +12,9 @@ export type AccountRow = {
   plan: "none" | PlanId;
   plan_status: "inactive" | "active" | "past_due" | "cancelled";
   stripe_customer_id: string | null;
+  /** Set by payments; absent until the billing columns exist. */
+  plan_ends_at?: string | null;
+  billing_subscription_id?: string | null;
 };
 
 /**
@@ -40,9 +43,11 @@ export async function upsertAccount(
 
 export async function getAccount(githubId: number): Promise<AccountRow | null> {
   if (!isDbConfigured()) return null;
+  // `*` rather than a column list: naming a column that hasn't been added yet
+  // would fail the whole read, and everyone would lose their plan with it.
   const { data } = await db()
     .from("accounts")
-    .select("github_id, login, name, avatar, plan, plan_status, stripe_customer_id")
+    .select("*")
     .eq("github_id", githubId)
     .maybeSingle();
   return (data as AccountRow | null) ?? null;
@@ -64,8 +69,20 @@ export type Entitlement = {
 
 const NONE: Entitlement = { plan: "none", via: null, billingId: null, limits: null };
 
-const isLive = (a: AccountRow | null) =>
-  Boolean(a && a.plan !== "none" && a.plan_status === "active");
+/**
+ * Still allowed in:
+ * - paying ("active")
+ * - a card failed and it's being retried for up to two weeks ("past_due")
+ * - cancelled, but the month they paid for hasn't run out yet
+ */
+const isLive = (a: AccountRow | null) => {
+  if (!a || a.plan === "none") return false;
+  if (a.plan_status === "active" || a.plan_status === "past_due") return true;
+  return (
+    a.plan_status === "cancelled" &&
+    Boolean(a.plan_ends_at && Date.parse(a.plan_ends_at) > Date.now())
+  );
+};
 
 export async function entitlement(user: User | null): Promise<Entitlement> {
   if (!user) return NONE;

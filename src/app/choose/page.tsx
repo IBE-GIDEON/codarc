@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { currentUser, canSignIn } from "@/lib/session";
+import { entitlement } from "@/lib/accounts";
 import { Wordmark } from "@/components/logo";
 import { PlanCards } from "@/components/billing/plan-cards";
 
@@ -26,7 +27,12 @@ export default async function ChoosePlan({
     redirect(`/api/auth/github?back=${encodeURIComponent(target)}`);
   }
 
-  const returnTo = back && back.startsWith("/") && !back.startsWith("//") ? back : "/";
+  const returnTo =
+    back && back.startsWith("/") && !back.startsWith("//") ? back : user ? "/dashboard" : "/";
+
+  // Only a plan they pay for themselves has a billing page to manage.
+  const ent = await entitlement(user);
+  const current = ent.via === "own" && ent.plan !== "none" ? ent.plan : null;
 
   return (
     <div className="min-h-dvh bg-page">
@@ -45,7 +51,11 @@ export default async function ChoosePlan({
       <main className="mx-auto w-full max-w-[860px] px-6 pt-10 pb-24">
         <div className="mx-auto max-w-[560px] text-center">
           <h1 className="text-[34px] leading-[1.12] font-bold tracking-[-0.03em] text-primary md:text-[40px]">
-            {user ? `Nearly there, ${user.name?.split(" ")[0] ?? user.login}.` : "Pick a plan."}
+            {current
+              ? "Your plan"
+              : user
+                ? `Nearly there, ${user.name?.split(" ")[0] ?? user.login}.`
+                : "Pick a plan."}
           </h1>
           <p className="mx-auto mt-3 max-w-[46ch] text-[16px] leading-[1.6] text-secondary">
             Codarc reads real code and writes real changes, so it costs real
@@ -54,11 +64,14 @@ export default async function ChoosePlan({
         </div>
 
         <div className="mt-10">
-          <PlanCards returnTo={returnTo} />
+          <PlanCards returnTo={returnTo} current={current} />
         </div>
 
         <p className="mt-6 text-center text-[13px] text-tertiary">
           Thirty days, money back, no conversation required.
+        </p>
+        <p className="mt-1.5 text-center text-[12.5px] text-tertiary">
+          You pay on Lemon Squeezy&apos;s secure page. Your card never touches Codarc.
         </p>
       </main>
     </div>

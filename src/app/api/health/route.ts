@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, dbKeyKind, isDbConfigured } from "@/lib/db";
 import { env, hasEnv, supabaseUrl } from "@/lib/env";
+import { paymentsConfigured } from "@/lib/payments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export async function GET() {
   const missing: string[] = [];
   const keyKind = dbKeyKind();
   let accountsSaved: boolean | undefined;
+  let billingColumns: boolean | undefined;
 
   // The public key connects fine and reads empty tables, so it would pass
   // every check below while every save quietly fails.
@@ -53,6 +55,10 @@ export async function GET() {
     if (database === "connected") {
       const { data } = await db().from("accounts").select("github_id").limit(1);
       accountsSaved = Boolean(data?.length);
+
+      // Payments write to columns added after the first version of the schema.
+      const { error } = await db().from("accounts").select("billing_subscription_id").limit(1);
+      billingColumns = !error;
     }
   }
 
@@ -67,11 +73,13 @@ export async function GET() {
     databaseKey: keyKind,
     ...(urlTrimmed ? { databaseUrl: "had extra on the end — Codarc ignores it" } : {}),
     ...(accountsSaved !== undefined ? { accountsSaved } : {}),
+    ...(billingColumns !== undefined ? { billingColumns } : {}),
     liveCursors: hasEnv("SUPABASE_ANON_KEY") && hasEnv("SESSION_SECRET"),
     signIn: hasEnv("GITHUB_APP_CLIENT_ID") && hasEnv("GITHUB_APP_CLIENT_SECRET") && hasEnv("SESSION_SECRET"),
     githubApp: hasEnv("GITHUB_APP_ID") && (hasEnv("GITHUB_APP_PRIVATE_KEY") || hasEnv("GITHUB_APP_PRIVATE_KEY_PATH")),
     drafting: hasEnv("ANTHROPIC_API_KEY"),
     githubToken: hasEnv("GITHUB_TOKEN"),
+    payments: paymentsConfigured(),
     ownerLock: hasEnv("CODARC_OWNER_KEY"),
   });
 }

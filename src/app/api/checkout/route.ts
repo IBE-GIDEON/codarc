@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/session";
 import { planById } from "@/lib/plans";
-import { hasEnv } from "@/lib/env";
+import { getAccount } from "@/lib/accounts";
+import { PaymentError, createCheckout, paymentsConfigured } from "@/lib/payments";
 
 export const runtime = "nodejs";
 
 /**
- * Where a chosen plan turns into money.
- *
- * Stripe isn't connected yet, so this deliberately refuses rather than
- * pretending. When STRIPE_SECRET_KEY exists, create a Checkout Session here
- * and return its url — the client already follows `url` if it's there.
+ * Where a chosen plan turns into money: returns a Lemon Squeezy checkout
+ * link, which the plan cards follow. The card is typed on Lemon Squeezy's
+ * page, never Codarc's.
  */
 export async function POST(request: Request) {
   const user = await currentUser();
@@ -25,8 +24,9 @@ export async function POST(request: Request) {
   }
 
   let plan: string | undefined;
+  let returnTo: string | undefined;
   try {
-    ({ plan } = await request.json());
+    ({ plan, returnTo } = await request.json());
   } catch {
     // falls through to the check below
   }
@@ -39,22 +39,45 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!hasEnv("STRIPE_SECRET_KEY")) {
+  if (!paymentsConfigured()) {
     return NextResponse.json(
       {
         error: "Payments aren't switched on yet",
-        hint: `You picked ${chosen.name} at $${chosen.price} a month. Nothing has been charged — card payments are the next thing being connected.`,
+        hint: `You picked ${chosen.name} at $${chosen.price} a month. Nothing has been charged.`,
       },
       { status: 503 },
     );
   }
 
-  // TODO: create a Stripe Checkout Session for `chosen` and return { url }.
-  return NextResponse.json(
-    {
-      error: "Payments aren't finished yet",
-      hint: "The card step is still being built. Nothing has been charged.",
-    },
-    { status: 503 },
-  );
+  // Already paying: a second checkout would mean a second bill. Switching
+  // plans happens on the billing page instead.
+  const account = await getAccount(user.id);
+  if (
+    account?.billing_subscription_id &&
+    account.plan !== "none" &&
+    account.plan_status !== "inactive"
+  ) {
+    return NextResponse.json({
+      url: "/api/billing/portal",
+      note: "already-subscribed",
+    });
+  }
+
+  const origin = new URL(request.url).origin;
+  const back = returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/dashboard";
+  const redirectUrl = `${origin}/dashboard?paid=${chosen.id}&back=${encodeURIComponent(back)}`;
+
+  try {
+    const url = await createCheckout({ plan: chosen.id, user, redirectUrl });
+    return NextResponse.json({ url });
+  } catch (err) {
+    if (err instanceof PaymentError) {
+      return NextResponse.json({ error: err.message, hint: err.hint }, { status: err.status });
+    }
+    console.error("[checkout]", err);
+    return NextResponse.json(
+      { error: "The payment page didn't open", hint: "Nothing has been charged. Try again in a moment." },
+      { status: 500 },
+    );
+  }
 }

@@ -9,6 +9,8 @@ type Props = {
   planName: string | null;
   planNote: string | null;
   showTeam: boolean;
+  /** Pays for a plan themselves, so there's a billing page to open. */
+  paysOwn?: boolean;
 };
 
 function Row({
@@ -16,29 +18,39 @@ function Row({
   icon: Icon,
   label,
   active,
+  plain,
 }: {
   href: string;
   icon: typeof Home;
   label: string;
   active?: boolean;
+  /** A route that redirects off-site — a plain link, not a client-side one. */
+  plain?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex h-[28px] items-center gap-2 rounded-sm px-2 text-[14px]",
-        "transition-[background] duration-[20ms] ease-in",
-        active ? "bg-active font-medium text-primary" : "text-secondary hover:bg-hover",
-      )}
-    >
+  const className = cn(
+    "flex h-[28px] items-center gap-2 rounded-sm px-2 text-[14px]",
+    "transition-[background] duration-[20ms] ease-in",
+    active ? "bg-active font-medium text-primary" : "text-secondary hover:bg-hover",
+  );
+  const inner = (
+    <>
       <Icon className="size-4 shrink-0 text-tertiary" />
       <span className="truncate">{label}</span>
+    </>
+  );
+  return plain ? (
+    <a href={href} className={className}>
+      {inner}
+    </a>
+  ) : (
+    <Link href={href} className={className}>
+      {inner}
     </Link>
   );
 }
 
 /** Notion's sidebar: the places you go, then who you are at the bottom. */
-export function DashboardSidebar({ user, planName, planNote, showTeam }: Props) {
+export function DashboardSidebar({ user, planName, planNote, showTeam, paysOwn }: Props) {
   return (
     <aside className="hidden w-60 shrink-0 flex-col bg-sidebar md:flex">
       <div className="flex items-center px-2 pt-2.5 pb-2">
@@ -53,11 +65,15 @@ export function DashboardSidebar({ user, planName, planNote, showTeam }: Props) 
       <nav className="space-y-px px-2 pt-1">
         <Row href="/dashboard" icon={Home} label="Home" active />
         {showTeam && <Row href="/team" icon={Users} label="Your team" />}
-        <Row
-          href={`/choose?back=${encodeURIComponent("/dashboard")}`}
-          icon={CreditCard}
-          label={planName ? "Plans" : "Choose a plan"}
-        />
+        {paysOwn ? (
+          <Row href="/api/billing/portal" icon={CreditCard} label="Billing" plain />
+        ) : (
+          <Row
+            href={`/choose?back=${encodeURIComponent("/dashboard")}`}
+            icon={CreditCard}
+            label={planName ? "Plans" : "Choose a plan"}
+          />
+        )}
         <Row href="/?site" icon={Globe} label="Codarc website" />
       </nav>
 

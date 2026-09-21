@@ -26,6 +26,13 @@ create table if not exists accounts (
   updated_at          timestamptz not null default now()
 );
 
+-- Billing, filled in by Lemon Squeezy's webhooks. Added separately so
+-- running this file again upgrades a database made before payments existed.
+alter table accounts add column if not exists billing_subscription_id text unique;
+alter table accounts add column if not exists billing_customer_id     text;
+alter table accounts add column if not exists plan_ends_at            timestamptz;
+alter table accounts add column if not exists billing_synced_at       timestamptz;
+
 -- ---------------------------------------------------------------- projects
 -- A repository becomes one of your projects the first time you use a paid
 -- feature on it. Solo allows 3.
