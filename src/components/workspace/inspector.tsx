@@ -73,11 +73,14 @@ export function Inspector({
   map,
   onClose,
   onSelect,
+  readOnly = false,
 }: {
   node: GraphNode;
   map: RepoMap;
   onClose: () => void;
   onSelect: (id: string) => void;
+  /** A shared map: everything to understand the app, nothing to change it. */
+  readOnly?: boolean;
 }) {
   // The parent keys this by node id, so selecting another node remounts and
   // the draft resets on its own.
@@ -263,6 +266,7 @@ export function Inspector({
           </div>
         )}
 
+        {!readOnly && (
         <div className="mt-5" data-tour="change">
           <Label>Change it</Label>
 
@@ -368,10 +372,18 @@ export function Inspector({
             </>
           )}
         </div>
+        )}
+
       </div>
 
       <div className="space-y-2 px-4 pt-3 pb-4">
-        {!caps.signedIn ? (
+        {readOnly ? (
+          <a href={href} target="_blank" rel="noreferrer">
+            <Button variant="secondary" size="lg" className="w-full">
+              <FileCode2 className="size-3.5" /> Read this on GitHub
+            </Button>
+          </a>
+        ) : !caps.signedIn ? (
           <a
             href={
               caps.canSignIn

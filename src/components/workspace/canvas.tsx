@@ -27,9 +27,12 @@ export function Canvas({
   onSelect,
   storageKey,
   matches,
+  initialOffsets,
   ref,
 }: {
   ref?: React.Ref<CanvasHandle>;
+  /** Someone else's arrangement to start from — a shared map. */
+  initialOffsets?: Offsets;
   map: RepoMap;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
@@ -46,10 +49,10 @@ export function Canvas({
   const [offsets, setOffsets] = React.useState<Offsets>(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      return raw ? (JSON.parse(raw) as Offsets) : {};
-    } catch {
-      return {};
-    }
+      if (raw) return JSON.parse(raw) as Offsets;
+    } catch {}
+    // Nothing saved yet: start from whatever arrangement we were handed.
+    return initialOffsets ?? {};
   });
 
   const persist = React.useCallback(

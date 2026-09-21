@@ -9,6 +9,8 @@ import { matchNodes } from "@/components/workspace/search";
 import { Tour, type TourStep } from "@/components/workspace/tour";
 import { Inspector } from "@/components/workspace/inspector";
 import { MapSidebar } from "@/components/workspace/map-sidebar";
+import { ShareDialog } from "@/components/workspace/share-dialog";
+import type { Offsets } from "@/lib/share";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 
@@ -110,7 +112,66 @@ function Failure({
   );
 }
 
-export function Workspace({ owner, repo }: { owner: string; repo: string }) {
+/** Present when someone opened a link somebody else shared. */
+export type SharedContext = {
+  sharedBy: { name: string; login: string; avatar: string };
+  sharedAt: number;
+  note: string | null;
+  focus: string | null;
+  offsets: Offsets;
+  /** Kept apart from the owner's own layout so a viewer's nudges stay theirs. */
+  layoutKey: string;
+};
+
+function SharedBanner({ shared }: { shared: SharedContext }) {
+  const when = new Date(shared.sharedAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+  });
+  return (
+    <div className="pointer-events-auto flex max-w-[560px] items-start gap-3 rounded-xl bg-raised p-3 pr-4 shadow-popover">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={shared.sharedBy.avatar}
+        alt=""
+        width={28}
+        height={28}
+        className="size-7 shrink-0 rounded-full"
+      />
+      <div className="min-w-0">
+        <p className="text-[12.5px] text-secondary">
+          <span className="font-medium text-primary">{shared.sharedBy.name}</span>{" "}
+          shared this map with you · {when}
+        </p>
+        {shared.note && (
+          <p className="mt-1 text-[13px] leading-[1.5] text-primary">
+            &ldquo;{shared.note}&rdquo;
+          </p>
+        )}
+      </div>
+      <Link href="/" className="ml-auto shrink-0 self-center">
+        <Button variant="secondary" size="md">
+          Map your own app
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
+export function Workspace({
+  owner,
+  repo,
+  shared,
+}: {
+  owner: string;
+  repo: string;
+  shared?: SharedContext;
+}) {
+  const readOnly = Boolean(shared);
+  // Primitives for the effect below — depending on the `shared` object itself
+  // would refetch the map whenever a parent re-rendered with an equal copy.
+  const sharedFocus = shared?.focus ?? null;
+  const [sharing, setSharing] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const canvasRef = React.useRef<CanvasHandle>(null);
@@ -141,8 +202,9 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
           return;
         }
         setResult({ key, phase: "ready", map: body as RepoMap });
+        if (sharedFocus) setSelectedId(sharedFocus);
         try {
-          if (!localStorage.getItem("codarc-tour-done")) setTour(true);
+          if (!readOnly && !localStorage.getItem("codarc-tour-done")) setTour(true);
         } catch {}
       })
       .catch(() => {
@@ -158,7 +220,7 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
     return () => {
       cancelled = true;
     };
-  }, [owner, repo, key]);
+  }, [owner, repo, key, sharedFocus, readOnly]);
 
   const state: Result | { phase: "loading" } =
     result?.key === key ? result : { phase: "loading" };
@@ -184,6 +246,7 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
   }
 
   const { map } = state;
+  const layoutKey = `codarc-layout:${owner}/${repo}`;
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null;
   const matches = matchNodes(map.nodes, query);
 
@@ -310,6 +373,8 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
           setTourRun((r) => r + 1);
           setTour(true);
         }}
+        onShare={() => setSharing(true)}
+        readOnly={readOnly}
       />
 
       <main className="relative min-w-0 flex-1">
@@ -338,9 +403,16 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
             map={map}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            storageKey={`codarc-layout:${owner}/${repo}`}
+            storageKey={shared?.layoutKey ?? layoutKey}
+            initialOffsets={shared?.offsets}
             matches={matches}
           />
+        )}
+
+        {shared && (
+          <div className="pointer-events-none absolute top-3 left-3 z-10">
+            <SharedBanner shared={shared} />
+          </div>
         )}
 
         <div className="pointer-events-none absolute top-3 right-3 bottom-3 flex flex-col items-end gap-3">
@@ -350,12 +422,23 @@ export function Workspace({ owner, repo }: { owner: string; repo: string }) {
               node={selected}
               map={map}
               onSelect={pick}
+              readOnly={readOnly}
               onClose={() => setSelectedId(null)}
             />
           )}
         </div>
 
         <Tour key={tourRun} steps={steps} open={tour} onClose={endTour} />
+
+        {sharing && (
+          <ShareDialog
+            owner={owner}
+            repo={repo}
+            layoutKey={layoutKey}
+            selected={selected}
+            onClose={() => setSharing(false)}
+          />
+        )}
       </main>
     </div>
   );

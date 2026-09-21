@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronRight, FileText, HelpCircle } from "lucide-react";
+import { ChevronRight, FileText, HelpCircle, Share2 } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
@@ -21,6 +21,8 @@ export function MapSidebar({
   onQueryChange,
   matches,
   onReplayTour,
+  onShare,
+  readOnly = false,
 }: {
   map: RepoMap;
   selectedId: string | null;
@@ -29,6 +31,9 @@ export function MapSidebar({
   onQueryChange: (v: string) => void;
   matches: Set<string> | null;
   onReplayTour: () => void;
+  onShare?: () => void;
+  /** Someone else's shared map: read it, search it, but it isn't yours. */
+  readOnly?: boolean;
 }) {
   const visible = React.useMemo(
     () => (matches ? map.nodes.filter((n) => matches.has(n.id)) : map.nodes),
@@ -62,13 +67,15 @@ export function MapSidebar({
           <Wordmark size="sm" />
         </Link>
         <span className="ml-auto flex items-center" data-tour="help">
-          <IconButton
-            onClick={onReplayTour}
-            aria-label="Take the tour again"
-            title="Take the tour again"
-          >
-            <HelpCircle className="size-4" />
-          </IconButton>
+          {!readOnly && (
+            <IconButton
+              onClick={onReplayTour}
+              aria-label="Take the tour again"
+              title="Take the tour again"
+            >
+              <HelpCircle className="size-4" />
+            </IconButton>
+          )}
           <ThemeToggle />
         </span>
       </div>
@@ -179,19 +186,30 @@ export function MapSidebar({
         })}
       </div>
 
-      <div className="px-2 pb-1">
-        <Link
-          href={`/r/${map.owner}/${map.repo}/handover`}
-          className="notion-hover flex h-8 items-center gap-2 px-2 text-[13px] text-secondary hover:text-primary"
-        >
-          <FileText className="size-3.5 shrink-0 text-tertiary" />
-          Handover pack
-        </Link>
-      </div>
+      {!readOnly && (
+        <>
+          <div className="space-y-px px-2 pb-1">
+            <button
+              onClick={onShare}
+              className="notion-hover flex h-8 w-full items-center gap-2 px-2 text-left text-[13px] text-secondary hover:text-primary"
+            >
+              <Share2 className="size-3.5 shrink-0 text-tertiary" />
+              Share this map
+            </button>
+            <Link
+              href={`/r/${map.owner}/${map.repo}/handover`}
+              className="notion-hover flex h-8 items-center gap-2 px-2 text-[13px] text-secondary hover:text-primary"
+            >
+              <FileText className="size-3.5 shrink-0 text-tertiary" />
+              Handover pack
+            </Link>
+          </div>
 
-      <div className="shadow-[inset_0_1px_0_0_var(--border)]">
-        <Account />
-      </div>
+          <div className="shadow-[inset_0_1px_0_0_var(--border)]">
+            <Account />
+          </div>
+        </>
+      )}
 
       <div className="px-3 pb-2.5 text-[11px] leading-[1.5] text-tertiary">
         Read {map.stats.filesScanned} of {map.stats.filesTotal} files on{" "}
