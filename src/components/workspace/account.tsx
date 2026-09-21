@@ -1,14 +1,26 @@
 "use client";
 
 import * as React from "react";
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Users } from "lucide-react";
 import { GithubMark } from "@/components/brand-marks";
 import { Button } from "@/components/ui/button";
 
 type Caps = {
   user: { login: string; name: string | null; avatar: string } | null;
   canSignIn: boolean;
+  plan: "none" | "solo" | "studio";
+  planVia: "own" | "team" | "owner-key" | null;
+  usage: {
+    projects: number;
+    projectLimit: number | null;
+    changes: number;
+    changeLimit: number | null;
+  } | null;
 };
+
+/** "12 of 100" / "12" when there's no ceiling. */
+const of = (n: number, limit: number | null) => (limit === null ? `${n}` : `${n} of ${limit}`);
 
 /** Forwards `?as=customer` so the owner can preview their own paywall. */
 function capabilitiesUrl() {
@@ -44,7 +56,34 @@ export function Account() {
   if (!caps) return null;
 
   if (caps.user) {
+    const planName =
+      caps.plan === "studio" ? "Studio" : caps.plan === "solo" ? "Solo" : null;
     return (
+      <div>
+        {planName && (
+          <div className="px-3 pt-2.5 text-[11px] leading-[1.6] text-tertiary">
+            <span className="font-medium text-secondary">{planName}</span>
+            {caps.planVia === "team" && " · via your team"}
+            {caps.usage && (
+              <>
+                <br />
+                {of(caps.usage.changes, caps.usage.changeLimit)} changes this month ·{" "}
+                {of(caps.usage.projects, caps.usage.projectLimit)} projects
+              </>
+            )}
+          </div>
+        )}
+        {caps.plan === "studio" && (
+          <div className="px-2 pt-1">
+            <Link
+              href="/team"
+              className="notion-hover flex h-8 items-center gap-2 px-2 text-[13px] text-secondary hover:text-primary"
+            >
+              <Users className="size-3.5 shrink-0 text-tertiary" />
+              Your team
+            </Link>
+          </div>
+        )}
       <div className="reveal-parent flex items-center gap-2 px-2 py-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -65,6 +104,7 @@ export function Account() {
         >
           <LogOut className="size-3.5" />
         </a>
+      </div>
       </div>
     );
   }

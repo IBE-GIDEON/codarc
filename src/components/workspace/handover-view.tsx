@@ -89,7 +89,7 @@ export function HandoverView({
     ])
       .then(([caps, map]) => {
         if (!live) return;
-        if (!caps.hasPlan) {
+        if (!caps.isStudio) {
           setState({ at: "denied" });
           return;
         }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isConfigured } from "@/lib/github-app";
-import { hasActivePlan } from "@/lib/billing";
+import { atLeast, entitlement } from "@/lib/accounts";
+import { usageSummary } from "@/lib/usage";
 import { canSignIn, currentUser } from "@/lib/session";
 import { hasEnv } from "@/lib/env";
 
@@ -22,7 +23,11 @@ export async function GET(request: Request) {
   // out. It only dresses the UI down — the real checks still run server-side.
   const asCustomer =
     new URL(request.url).searchParams.get("as") === "customer";
-  const paid = asCustomer ? false : await hasActivePlan(user);
+
+  const ent = asCustomer
+    ? { plan: "none" as const, via: null, billingId: null, limits: null }
+    : await entitlement(user);
+  const paid = ent.plan !== "none";
 
   return NextResponse.json({
     user: user && {
@@ -32,7 +37,11 @@ export async function GET(request: Request) {
     },
     canSignIn: canSignIn(),
     signedIn: Boolean(user),
+    plan: ent.plan,
+    planVia: ent.via,
     hasPlan: paid,
+    isStudio: atLeast(ent.plan, "studio"),
+    usage: paid ? await usageSummary(ent) : null,
     canDraft: hasEnv("ANTHROPIC_API_KEY") && Boolean(user) && paid,
     canSend: isConfigured(),
     connected: Boolean(installation),

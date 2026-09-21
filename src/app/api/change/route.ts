@@ -3,7 +3,8 @@ import { ChangeError, holdProposal, proposeChange } from "@/lib/change";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
 import { currentUser } from "@/lib/session";
-import { hasActivePlan } from "@/lib/billing";
+import { entitlement } from "@/lib/accounts";
+import { checkChangeAllowance, claimProject, recordChange } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -21,7 +22,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await hasActivePlan(await currentUser()))) {
+  const ent = await entitlement(await currentUser());
+  if (ent.plan === "none") {
     return NextResponse.json(
       {
         error: "You need a plan to change things",
@@ -72,6 +74,18 @@ export async function POST(request: Request) {
 
   try {
     const { owner, repo: name } = parseRepoInput(repo);
+
+    // Limits are checked before the model is called — that's the part that
+    // costs money, so a refusal should cost nothing.
+    const project = await claimProject(ent, `${owner}/${name}`);
+    if (!project.ok) {
+      return NextResponse.json({ error: project.error, hint: project.hint, overLimit: true }, { status: 402 });
+    }
+    const allowance = await checkChangeAllowance(ent);
+    if (!allowance.ok) {
+      return NextResponse.json({ error: allowance.error, hint: allowance.hint, overLimit: true }, { status: 402 });
+    }
+
     const proposal = await proposeChange({
       owner,
       repo: name,
@@ -79,6 +93,8 @@ export async function POST(request: Request) {
       node,
       instruction: instruction.trim(),
     });
+
+    await recordChange(ent, `${owner}/${name}`);
 
     const proposalId = holdProposal({
       owner,

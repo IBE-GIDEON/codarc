@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/session";
-import { hasActivePlan } from "@/lib/billing";
+import { atLeast, entitlement } from "@/lib/accounts";
+import { claimProject } from "@/lib/usage";
 import { parseRepoInput } from "@/lib/github";
 import { canShare, encodeShare, type Offsets } from "@/lib/share";
 
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await hasActivePlan(user))) {
+  const ent = await entitlement(user);
+  if (!atLeast(ent.plan, "studio")) {
     return NextResponse.json(
       {
         error: "Sharing is part of Studio",
@@ -46,6 +48,11 @@ export async function POST(request: Request) {
   }
 
   const { owner, repo } = parseRepoInput(body.repo);
+
+  const project = await claimProject(ent, `${owner}/${repo}`);
+  if (!project.ok) {
+    return NextResponse.json({ error: project.error, hint: project.hint }, { status: 402 });
+  }
   const note = body.note?.trim() || null;
 
   const token = encodeShare({

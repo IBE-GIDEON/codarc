@@ -2,6 +2,18 @@
 
 export type PlanId = "solo" | "studio";
 
+/** Beyond this many people, the conversation moves to email. */
+export const MAX_SEATS = 5;
+
+export type Limits = {
+  /** Repositories you can use paid features on. null = no limit. */
+  projects: number | null;
+  /** Drafted changes per calendar month. null = no limit. */
+  changesPerMonth: number | null;
+  /** People on the account, owner included. */
+  seats: number;
+};
+
 export type Plan = {
   id: PlanId;
   name: string;
@@ -9,7 +21,11 @@ export type Plan = {
   tagline: string;
   features: string[];
   featured: boolean;
+  /** Enforced, not just advertised — change a number here and it changes everywhere. */
+  limits: Limits;
 };
+
+
 
 export const PLANS: Plan[] = [
   {
@@ -25,6 +41,7 @@ export const PLANS: Plan[] = [
       "Works with Python and JavaScript apps",
     ],
     featured: false,
+    limits: { projects: 3, changesPerMonth: 100, seats: 1 },
   },
   {
     id: "studio",
@@ -40,6 +57,7 @@ export const PLANS: Plan[] = [
       "Private deployment on request",
     ],
     featured: true,
+    limits: { projects: null, changesPerMonth: null, seats: MAX_SEATS },
   },
 ];
 

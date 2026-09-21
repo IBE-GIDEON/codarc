@@ -64,7 +64,7 @@ const COMPARISON: {
   {
     group: "Working with other people",
     rows: [
-      { label: "People on the account", solo: "1", studio: "5" },
+      { label: "People on the account", note: "More than 5? Message us", solo: "1", studio: "Up to 5" },
       { label: "Shared maps", solo: null, studio: true },
       {
         label: "Handover pack",
@@ -101,6 +101,10 @@ const FAQ = [
   {
     q: "Which plan should I pick?",
     a: "Solo if you built it alone and it's one project. Studio the moment somebody else needs to understand it too — a co-founder, a contractor, or the developer you're about to hire.",
+  },
+  {
+    q: "What if my team is bigger than five?",
+    a: "Studio covers up to five people. Past that we'll build a plan around how many people and projects you have — message us on X at @C0darc.",
   },
   {
     q: "Can I get my money back?",

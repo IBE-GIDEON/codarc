@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { STATE_COOKIE, identify, unpackState } from "@/lib/oauth";
 import { canSignIn, seal, sessionCookie } from "@/lib/session";
+import { upsertAccount } from "@/lib/accounts";
 
 export const runtime = "nodejs";
 
@@ -41,12 +42,14 @@ export async function GET(request: Request) {
       if (!user) {
         flags.push("signin=failed");
       } else {
-        session = seal({
+        const identity = {
           id: user.id,
           login: user.login,
           name: user.name,
           avatar: user.avatar_url,
-        });
+        };
+        await upsertAccount(identity);
+        session = seal(identity);
         flags.push("signin=ok");
       }
     }
