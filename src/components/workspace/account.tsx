@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { LogOut, Users } from "lucide-react";
+import { LayoutGrid, LogOut, Users } from "lucide-react";
 import { GithubMark } from "@/components/brand-marks";
 import { Button } from "@/components/ui/button";
 
@@ -73,8 +73,15 @@ export function Account() {
             )}
           </div>
         )}
-        {caps.plan === "studio" && (
-          <div className="px-2 pt-1">
+        <div className="px-2 pt-1">
+          <Link
+            href="/dashboard"
+            className="notion-hover flex h-8 items-center gap-2 px-2 text-[13px] text-secondary hover:text-primary"
+          >
+            <LayoutGrid className="size-3.5 shrink-0 text-tertiary" />
+            All your projects
+          </Link>
+          {caps.plan === "studio" && (
             <Link
               href="/team"
               className="notion-hover flex h-8 items-center gap-2 px-2 text-[13px] text-secondary hover:text-primary"
@@ -82,8 +89,8 @@ export function Account() {
               <Users className="size-3.5 shrink-0 text-tertiary" />
               Your team
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       <div className="reveal-parent flex items-center gap-2 px-2 py-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

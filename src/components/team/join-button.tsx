@@ -24,7 +24,8 @@ export function JoinButton({ token }: { token: string }) {
       setProblem({ error: json.error ?? "That didn't work", hint: json.hint ?? "" });
       return;
     }
-    router.push("/team");
+    // Straight to the projects they now share.
+    router.push("/dashboard");
   }
 
   return (

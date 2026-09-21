@@ -5,6 +5,8 @@ import type { GraphNode } from "@/lib/graph";
 import { currentUser } from "@/lib/session";
 import { entitlement } from "@/lib/accounts";
 import { checkChangeAllowance, claimProject, recordChange } from "@/lib/usage";
+import { readToken, repoAccess } from "@/lib/access";
+import { GithubAppError } from "@/lib/github-app";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -12,7 +14,8 @@ export const maxDuration = 120;
 export async function POST(request: Request) {
   // Both gates run before the body is even read: a draft spends real money,
   // and we want a name attached to every one of them.
-  if (!(await currentUser())) {
+  const user = await currentUser();
+  if (!user) {
     return NextResponse.json(
       {
         error: "Sign in to change things",
@@ -22,7 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const ent = await entitlement(await currentUser());
+  const ent = await entitlement(user);
   if (ent.plan === "none") {
     return NextResponse.json(
       {
@@ -86,12 +89,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: allowance.error, hint: allowance.hint, overLimit: true }, { status: 402 });
     }
 
+    // A connected repository is read with its own token, which is what makes
+    // private ones work. Public ones without it still draft fine.
+    const access = await repoAccess(user, owner, name);
     const proposal = await proposeChange({
       owner,
       repo: name,
       branch: branch || "HEAD",
       node,
       instruction: instruction.trim(),
+      repoToken: access ? await readToken(access, name) : undefined,
     });
 
     await recordChange(ent, `${owner}/${name}`);
@@ -122,7 +129,7 @@ export async function POST(request: Request) {
       })),
     });
   } catch (err) {
-    if (err instanceof ChangeError || err instanceof RepoError) {
+    if (err instanceof ChangeError || err instanceof RepoError || err instanceof GithubAppError) {
       return NextResponse.json(
         { error: err.message, hint: err.hint },
         { status: err.status },

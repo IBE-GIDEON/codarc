@@ -132,26 +132,126 @@ export async function appSlug(): Promise<string> {
   return app.slug;
 }
 
-export async function installationToken(installationId: string) {
+/**
+ * A token for one installation. Pass `narrow` to shrink it to a single
+ * repository and only the permissions the job needs — reading a map never
+ * needs the right to write.
+ */
+export async function installationToken(
+  installationId: string,
+  narrow?: { repo?: string; permissions: Record<string, "read" | "write"> },
+) {
   const res = await api<{ token: string }>(
     `/app/installations/${installationId}/access_tokens`,
     appJwt(),
-    { method: "POST" },
+    {
+      method: "POST",
+      body: narrow
+        ? JSON.stringify({
+            ...(narrow.repo ? { repositories: [narrow.repo] } : {}),
+            permissions: narrow.permissions,
+          })
+        : undefined,
+    },
   );
   return res.token;
 }
 
+/** Where Codarc is installed, and on whose account. */
+export type Installation = {
+  id: string;
+  accountId: number;
+  accountLogin: string;
+  accountType: "User" | "Organization";
+};
+
+type RawInstallation = {
+  id: number;
+  account: { id: number; login: string; type: "User" | "Organization" };
+};
+
+const toInstallation = (raw: RawInstallation): Installation => ({
+  id: String(raw.id),
+  accountId: raw.account.id,
+  accountLogin: raw.account.login,
+  accountType: raw.account.type,
+});
+
 /** Which installation covers this repo, if any. */
-export async function installationForRepo(owner: string, repo: string) {
+export async function installationForRepo(
+  owner: string,
+  repo: string,
+): Promise<Installation | null> {
   try {
-    const res = await api<{ id: number }>(
-      `/repos/${owner}/${repo}/installation`,
-      appJwt(),
+    return toInstallation(
+      await api<RawInstallation>(`/repos/${owner}/${repo}/installation`, appJwt()),
     );
-    return String(res.id);
   } catch {
     return null;
   }
+}
+
+/**
+ * The installation on this person's own GitHub account. Logins can be
+ * renamed and reused, so the numeric id has to match too.
+ */
+export async function installationForUser(
+  login: string,
+  userId: number,
+): Promise<Installation | null> {
+  try {
+    const found = toInstallation(
+      await api<RawInstallation>(`/users/${encodeURIComponent(login)}/installation`, appJwt()),
+    );
+    return found.accountId === userId ? found : null;
+  } catch {
+    return null;
+  }
+}
+
+export type RepoSummary = {
+  owner: string;
+  name: string;
+  isPrivate: boolean;
+  description: string | null;
+  pushedAt: string | null;
+};
+
+/** Every repository someone chose to show Codarc, busiest first. */
+export async function reposForInstallation(installationId: string): Promise<RepoSummary[]> {
+  const token = await installationToken(installationId, {
+    permissions: { metadata: "read" },
+  });
+
+  const out: RepoSummary[] = [];
+  // Ten pages is a thousand repositories — plenty for anyone this is for.
+  for (let page = 1; page <= 10; page++) {
+    const res = await api<{
+      total_count: number;
+      repositories: {
+        name: string;
+        owner: { login: string };
+        private: boolean;
+        description: string | null;
+        pushed_at: string | null;
+        archived: boolean;
+      }[];
+    }>(`/installation/repositories?per_page=100&page=${page}`, token);
+
+    for (const r of res.repositories) {
+      if (r.archived) continue;
+      out.push({
+        owner: r.owner.login,
+        name: r.name,
+        isPrivate: r.private,
+        description: r.description,
+        pushedAt: r.pushed_at,
+      });
+    }
+    if (page * 100 >= res.total_count) break;
+  }
+
+  return out.sort((a, b) => (b.pushedAt ?? "").localeCompare(a.pushedAt ?? ""));
 }
 
 export type NewFile = { path: string; content: string };

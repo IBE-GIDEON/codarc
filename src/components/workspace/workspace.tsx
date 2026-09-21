@@ -12,6 +12,7 @@ import { MapSidebar } from "@/components/workspace/map-sidebar";
 import { ShareDialog } from "@/components/workspace/share-dialog";
 import { PresenceStack, useLiveCursors } from "@/components/workspace/live-cursors";
 import type { Offsets } from "@/lib/share";
+import { rememberMap } from "@/lib/recent";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 
@@ -206,6 +207,17 @@ export function Workspace({
         }
         setResult({ key, phase: "ready", map: body as RepoMap });
         if (sharedFocus) setSelectedId(sharedFocus);
+        // Your own maps show up under "Recently opened" on the dashboard;
+        // someone else's shared link doesn't.
+        if (!readOnly) {
+          const map = body as RepoMap;
+          rememberMap({
+            owner: map.owner,
+            repo: map.repo,
+            overview: map.overview.slice(0, 160),
+            isPrivate: map.isPrivate,
+          });
+        }
         try {
           if (!readOnly && !localStorage.getItem("codarc-tour-done")) setTour(true);
         } catch {}
@@ -447,6 +459,7 @@ export function Workspace({
             repo={repo}
             layoutKey={layoutKey}
             selected={selected}
+            isPrivate={map.isPrivate}
             onClose={() => setSharing(false)}
           />
         )}

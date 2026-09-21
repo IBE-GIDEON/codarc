@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
-import { db, isDbConfigured } from "@/lib/db";
+import { db, explainWriteFailure, isDbConfigured } from "@/lib/db";
 import { MAX_SEATS } from "@/lib/plans";
 import { upsertAccount, type Entitlement } from "@/lib/accounts";
 import type { User } from "@/lib/session";
@@ -102,25 +102,44 @@ export async function ensureTeam(user: User, ent: Entitlement): Promise<TeamResu
     return { ok: true, value: existing };
   }
 
-  await upsertAccount(user);
+  const setupFailed = (where: string, failure: { message: string; code?: string } | null) => {
+    const why = explainWriteFailure(where, failure);
+    return fail("We couldn't set up your team", why.hint, 500);
+  };
 
-  const { data: team, error } = await db()
+  // The team needs your account row to hang off.
+  const accountFailure = await upsertAccount(user);
+  if (accountFailure) return setupFailed("team account", accountFailure);
+
+  // An earlier attempt may have made the team and then stalled before adding
+  // you to it. Pick that one up rather than tripping over it.
+  const { data: orphan } = await db()
     .from("teams")
-    .insert({ owner_id: user.id })
     .select("id")
-    .single();
-  if (error || !team) {
-    return fail("We couldn't set up your team", "Try again in a moment.", 500);
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  let teamId = (orphan as { id: string } | null)?.id;
+  if (!teamId) {
+    const { data: team, error } = await db()
+      .from("teams")
+      .insert({ owner_id: user.id })
+      .select("id")
+      .single();
+    if (error || !team) return setupFailed("team insert", error);
+    teamId = (team as { id: string }).id;
   }
 
-  await db()
+  const { error: seatError } = await db()
     .from("team_members")
-    .insert({ team_id: (team as { id: string }).id, account_id: user.id, role: "owner" });
+    .upsert(
+      { team_id: teamId, account_id: user.id, role: "owner" },
+      { onConflict: "team_id,account_id", ignoreDuplicates: true },
+    );
+  if (seatError) return setupFailed("team owner seat", seatError);
 
   const made = await teamFor(user.id);
-  return made
-    ? { ok: true, value: made }
-    : fail("We couldn't set up your team", "Try again in a moment.", 500);
+  return made ? { ok: true, value: made } : setupFailed("team read-back", null);
 }
 
 export async function createInvite(user: User, ent: Entitlement): Promise<TeamResult<string>> {
@@ -139,7 +158,9 @@ export async function createInvite(user: User, ent: Entitlement): Promise<TeamRe
   const { error } = await db()
     .from("team_invites")
     .insert({ token, team_id: team.value.id, created_by: user.id });
-  if (error) return fail("We couldn't make an invite", "Try again in a moment.", 500);
+  if (error) {
+    return fail("We couldn't make an invite", explainWriteFailure("invite", error).hint, 500);
+  }
 
   return { ok: true, value: token };
 }
@@ -213,7 +234,10 @@ export async function acceptInvite(token: string, user: User): Promise<TeamResul
     );
   }
 
-  await upsertAccount(user);
+  const accountFailure = await upsertAccount(user);
+  if (accountFailure) {
+    return fail("We couldn't add you", explainWriteFailure("join account", accountFailure).hint, 500);
+  }
 
   const { data: invite } = await db()
     .from("team_invites")
@@ -231,7 +255,7 @@ export async function acceptInvite(token: string, user: User): Promise<TeamResul
     if (error.message.includes("team_full")) {
       return fail("This team just filled up", "Someone took the last seat. Ask the owner to make room.", 409);
     }
-    return fail("We couldn't add you", "Try again in a moment.", 500);
+    return fail("We couldn't add you", explainWriteFailure("join", error).hint, 500);
   }
 
   await db()
@@ -250,12 +274,34 @@ export async function removeMember(owner: User, memberId: number): Promise<TeamR
   if (memberId === owner.id) {
     return fail("You can't remove yourself", "You own the team.", 400);
   }
-  await db()
+  if (!team.members.some((m) => m.githubId === memberId)) {
+    return fail("They're not on your team", "They may have left already.", 404);
+  }
+
+  const { error } = await db()
     .from("team_members")
     .delete()
     .eq("team_id", team.id)
     .eq("account_id", memberId);
+  if (error) {
+    return fail("We couldn't remove them", explainWriteFailure("remove member", error).hint, 500);
+  }
   return { ok: true };
+}
+
+/**
+ * Take someone off the team and hand back a fresh invite for their seat in
+ * one step. Their access ends straight away — entitlement is read live — and
+ * the link they joined with was single-use, so it can't bring them back.
+ */
+export async function replaceMember(
+  owner: User,
+  ent: Entitlement,
+  memberId: number,
+): Promise<TeamResult<string>> {
+  const removed = await removeMember(owner, memberId);
+  if (!removed.ok) return removed;
+  return createInvite(owner, ent);
 }
 
 export async function leaveTeam(user: User): Promise<TeamResult> {

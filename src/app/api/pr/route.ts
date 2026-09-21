@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { takeProposal } from "@/lib/change";
-import {
-  GithubAppError,
-  installationForRepo,
-  installationToken,
-  isConfigured,
-  openPullRequest,
-} from "@/lib/github-app";
+import { GithubAppError, isConfigured, openPullRequest } from "@/lib/github-app";
+import { repoAccess, writeToken } from "@/lib/access";
 import { currentUser } from "@/lib/session";
 import { hasActivePlan } from "@/lib/billing";
 
@@ -72,23 +66,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Prefer the installation that actually covers this repo — the cookie is
-    // only a hint, and someone may have installed on a different account.
-    const cookieId = (await cookies()).get("codarc-installation")?.value;
-    const installationId =
-      (await installationForRepo(held.owner, held.repo)) ?? cookieId;
-
-    if (!installationId) {
+    // Only on a repository this person (or their Studio owner) connected —
+    // the app's key could open far more than that.
+    const access = await repoAccess(await currentUser(), held.owner, held.repo);
+    if (!access) {
       return NextResponse.json(
         {
-          error: "Codarc isn't installed on this repository",
-          hint: "Connect GitHub and pick this repository, then try again.",
+          error: "Codarc can't send changes to this project",
+          hint: "It only sends changes to projects you've connected. Connect GitHub and tick this one, then try again.",
         },
         { status: 403 },
       );
     }
 
-    const token = await installationToken(installationId);
+    const token = await writeToken(access, held.repo);
 
     const title = `Codarc: ${held.nodeTitle.toLowerCase()}`;
     const body = [

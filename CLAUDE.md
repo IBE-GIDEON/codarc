@@ -57,6 +57,9 @@ names become sentences; put new copy through it rather than inlining jargon.
 `src/lib/humanize.ts` — code-shaped names to plain English
 `src/app/api/map/route.ts` — GET /api/map?repo=owner/name
 `src/app/api/change/route.ts` — POST, drafts a change and returns a diff
+`src/lib/access.ts` — who may read or change a repo (own install, or team owner's)
+`src/proxy.ts` — signed-in visitors skip the landing page for `/dashboard`
+`src/app/dashboard` — home once signed in: recent maps, your GitHub projects
 `src/app/r/[owner]/[repo]` — the workspace
 `src/components/workspace/*` — canvas, inspector, sidebar
 `src/components/landing/*` — marketing only; brand rules apply here

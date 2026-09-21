@@ -23,11 +23,14 @@ Left sidebar → **Project Settings** → **API**
 | Copy this | Into this |
 |---|---|
 | **Project URL** | `SUPABASE_URL` |
-| **service_role** key (click Reveal) | `SUPABASE_SERVICE_ROLE_KEY` |
-| **anon** / public key | `SUPABASE_ANON_KEY` — only needed for live cursors |
+| **Secret** key (starts `sb_secret_`) — or the older **service_role** key | `SUPABASE_SERVICE_ROLE_KEY` |
+| **Publishable** key (starts `sb_publishable_`) — or the older **anon** key | `SUPABASE_ANON_KEY` — only needed for live cursors |
 
-> ⚠️ Use **service_role**, not **anon**. And never put it anywhere a browser
-> can see it — no `NEXT_PUBLIC_` in front of the name.
+> ⚠️ The two are easy to swap by accident, and the public one *looks* like it
+> works — it connects, then every save quietly fails. Open `/api/health`:
+> `"databaseKey": "secret"` is right; `"public"` means swap them.
+> Never put the secret one anywhere a browser can see it — no `NEXT_PUBLIC_`
+> in front of the name.
 
 ## 3. Add them to Vercel
 

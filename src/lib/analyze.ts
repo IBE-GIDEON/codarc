@@ -641,11 +641,13 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
 export async function analyzeRepo(
   owner: string,
   repo: string,
+  /** Only for a private repository, and only once access has been checked. */
+  repoToken?: string,
 ): Promise<RepoMap> {
-  const meta = await fetchRepoMeta(owner, repo);
-  const { entries, truncated } = await fetchTree(owner, repo, meta.defaultBranch);
+  const meta = await fetchRepoMeta(owner, repo, repoToken);
+  const { entries, truncated } = await fetchTree(owner, repo, meta.defaultBranch, repoToken);
   const paths = pickFiles(entries);
-  const files = await fetchFiles(owner, repo, meta.defaultBranch, paths);
+  const files = await fetchFiles(owner, repo, meta.defaultBranch, paths, repoToken);
 
   const resolve = makeResolver(new Set(files.keys()));
 
@@ -845,6 +847,7 @@ export async function analyzeRepo(
     features,
     branch: meta.defaultBranch,
     description: meta.description,
+    isPrivate: meta.isPrivate,
     stacks: detectStacks(files, paths),
     nodes,
     edges: trimmed,

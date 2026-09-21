@@ -117,12 +117,15 @@ export async function proposeChange({
   branch,
   node,
   instruction,
+  repoToken,
 }: {
   owner: string;
   repo: string;
   branch: string;
   node: GraphNode;
   instruction: string;
+  /** Needed for a private repository; checked by the caller. */
+  repoToken?: string;
 }): Promise<Proposal> {
   if (!hasEnv("ANTHROPIC_API_KEY")) {
     throw new ChangeError(
@@ -135,7 +138,7 @@ export async function proposeChange({
   // The node's own file first, then what it reaches into — a change often
   // needs the thing it calls, and manifests for new dependencies.
   const wanted = [node.file, ...node.related].slice(0, 5);
-  const files = await fetchFiles(owner, repo, branch, wanted);
+  const files = await fetchFiles(owner, repo, branch, wanted, repoToken);
 
   const primary = files.get(node.file);
   if (!primary) {

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Link2, Loader2, LogOut, UserMinus, Users } from "lucide-react";
+import { Check, Copy, Link2, Loader2, LogOut, RefreshCw, UserMinus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { XMark } from "@/components/brand-marks";
 import type { Member } from "@/lib/teams";
@@ -37,6 +37,11 @@ export function TeamManager({
   const [busy, setBusy] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
   const [problem, setProblem] = React.useState<{ error: string; hint: string } | null>(null);
+  // One row at a time asks "are you sure?" — nobody loses a seat to a stray click.
+  const [confirming, setConfirming] = React.useState<{
+    id: number;
+    action: "remove" | "replace";
+  } | null>(null);
 
   const full = members.length >= seatsTotal;
   const free = Math.max(0, seatsTotal - members.length);
@@ -67,7 +72,19 @@ export function TeamManager({
     setBusy(`remove:${id}`);
     const json = await call("/api/team/remove", { memberId: id });
     setBusy(null);
+    setConfirming(null);
     if (json) router.refresh();
+  }
+
+  async function replace(id: number) {
+    setBusy(`replace:${id}`);
+    const json = await call("/api/team/replace", { memberId: id });
+    setBusy(null);
+    setConfirming(null);
+    if (json?.url) {
+      setInvite(json.url);
+      router.refresh();
+    }
   }
 
   async function leave() {
@@ -119,34 +136,88 @@ export function TeamManager({
       <div className="mt-6">
         <div className="mb-2 text-[12px] font-medium text-tertiary">People</div>
         <div className="space-y-px">
-          {members.map((m) => (
-            <div key={m.githubId} className="reveal-parent notion-hover flex items-center gap-3 px-2 py-2">
-              <Avatar src={m.avatar} name={m.name || m.login} />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[14px] text-primary">
-                  {m.name || m.login}
-                  {m.githubId === meId && <span className="text-tertiary"> · you</span>}
-                </div>
-                <div className="truncate text-[12px] text-tertiary">
-                  @{m.login} · {m.role === "owner" ? "Owner" : "Member"}
-                </div>
-              </div>
-              {isOwner && m.role !== "owner" && (
-                <button
-                  onClick={() => remove(m.githubId)}
-                  disabled={busy !== null}
-                  className="reveal flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-c-red hover:bg-c-red-bg"
-                >
-                  {busy === `remove:${m.githubId}` ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <UserMinus className="size-3.5" />
+          {members.map((m) => {
+            const who = m.name || m.login;
+            const asking = confirming?.id === m.githubId ? confirming.action : null;
+            const working = busy?.endsWith(`:${m.githubId}`);
+
+            return (
+              <div key={m.githubId}>
+                <div className="reveal-parent notion-hover flex items-center gap-3 px-2 py-2">
+                  <Avatar src={m.avatar} name={who} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14px] text-primary">
+                      {who}
+                      {m.githubId === meId && <span className="text-tertiary"> · you</span>}
+                    </div>
+                    <div className="truncate text-[12px] text-tertiary">
+                      @{m.login} · {m.role === "owner" ? "Owner" : "Member"}
+                    </div>
+                  </div>
+                  {isOwner && m.role !== "owner" && !asking && (
+                    <div className="reveal flex items-center gap-1">
+                      <button
+                        onClick={() => setConfirming({ id: m.githubId, action: "replace" })}
+                        disabled={busy !== null}
+                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-secondary hover:bg-hover hover:text-primary"
+                      >
+                        <RefreshCw className="size-3.5" /> Replace
+                      </button>
+                      <button
+                        onClick={() => setConfirming({ id: m.githubId, action: "remove" })}
+                        disabled={busy !== null}
+                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-c-red hover:bg-c-red-bg"
+                      >
+                        <UserMinus className="size-3.5" /> Remove
+                      </button>
+                    </div>
                   )}
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
+                </div>
+
+                {asking && (
+                  <div className="mx-2 mb-2 rounded-sm bg-c-red-bg p-3">
+                    <p className="text-[13px] leading-[1.5] text-primary">
+                      {asking === "replace"
+                        ? `Take ${who} off the team and make a new invite link for their seat?`
+                        : `Take ${who} off the team?`}
+                    </p>
+                    <p className="mt-0.5 text-[12.5px] leading-[1.5] text-secondary">
+                      They lose access straight away. The link they joined with
+                      only ever worked once, so they can&apos;t use it to come back.
+                    </p>
+                    <div className="mt-2.5 flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="md"
+                        disabled={busy !== null}
+                        onClick={() =>
+                          asking === "replace" ? replace(m.githubId) : remove(m.githubId)
+                        }
+                        className="text-c-red"
+                      >
+                        {working ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : asking === "replace" ? (
+                          <RefreshCw className="size-3.5" />
+                        ) : (
+                          <UserMinus className="size-3.5" />
+                        )}
+                        {asking === "replace" ? "Remove and invite someone new" : `Remove ${who}`}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        disabled={busy !== null}
+                        onClick={() => setConfirming(null)}
+                      >
+                        Keep them
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -162,22 +233,7 @@ export function TeamManager({
       {/* invite, or the way past five */}
       {isOwner && (
         <div className="mt-8">
-          {full ? (
-            <div className="rounded-xl bg-sunken p-5">
-              <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-primary">
-                Need more than {seatsTotal} people?
-              </h2>
-              <p className="mt-1.5 text-[13.5px] leading-[1.55] text-secondary">
-                Bigger teams get a plan built around them. Send us a message and
-                tell us how many people and how many projects.
-              </p>
-              <a href="https://x.com/C0darc" target="_blank" rel="noreferrer" className="mt-4 inline-block">
-                <Button variant="primary" size="lg">
-                  <XMark className="size-3.5" /> Message us on X
-                </Button>
-              </a>
-            </div>
-          ) : invite ? (
+          {invite ? (
             <div>
               <div className="mb-2 text-[12px] font-medium text-tertiary">Invite link</div>
               <div className="flex items-center gap-2 rounded-md bg-sunken px-3 py-2 shadow-[inset_0_0_0_1px_var(--border)]">
@@ -203,9 +259,25 @@ export function TeamManager({
                 </Button>
               </div>
               <p className="mt-3 text-[12.5px] leading-[1.5] text-tertiary">
-                Works once, for one person, for seven days. They sign in with
-                GitHub and they&apos;re in.
+                Works once, for one person, for seven days. They make a Codarc
+                account with their GitHub, and they&apos;re in.
               </p>
+            </div>
+          ) : full ? (
+            <div className="rounded-xl bg-sunken p-5">
+              <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-primary">
+                All {seatsTotal} seats are taken
+              </h2>
+              <p className="mt-1.5 text-[13.5px] leading-[1.55] text-secondary">
+                To swap someone out, point at their name and choose Replace. For
+                a bigger team, send us a message — tell us how many people and
+                how many projects.
+              </p>
+              <a href="https://x.com/C0darc" target="_blank" rel="noreferrer" className="mt-4 inline-block">
+                <Button variant="secondary" size="lg">
+                  <XMark className="size-3.5" /> Message us on X
+                </Button>
+              </a>
             </div>
           ) : (
             <div>

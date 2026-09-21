@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, isDbConfigured } from "@/lib/db";
+import { db, dbKeyKind, isDbConfigured } from "@/lib/db";
 import { hasEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -13,10 +13,20 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const tables = ["accounts", "projects", "changes", "teams", "team_members", "team_invites"];
 
-  let database: "connected" | "not configured" | "tables missing" | "rejected" = "not configured";
+  let database:
+    | "connected"
+    | "not configured"
+    | "tables missing"
+    | "rejected"
+    | "wrong key — use the secret one" = "not configured";
   const missing: string[] = [];
+  const keyKind = dbKeyKind();
 
-  if (isDbConfigured()) {
+  // The public key connects fine and reads empty tables, so it would pass
+  // every check below while every save quietly fails.
+  if (isDbConfigured() && keyKind === "public") {
+    database = "wrong key — use the secret one";
+  } else if (isDbConfigured()) {
     database = "connected";
     for (const table of tables) {
       const { error } = await db().from(table).select("*", { count: "exact", head: true });
@@ -34,6 +44,7 @@ export async function GET() {
   return NextResponse.json({
     database,
     ...(missing.length ? { missingTables: missing } : {}),
+    databaseKey: keyKind,
     liveCursors: hasEnv("SUPABASE_ANON_KEY") && hasEnv("SESSION_SECRET"),
     signIn: hasEnv("GITHUB_APP_CLIENT_ID") && hasEnv("GITHUB_APP_CLIENT_SECRET") && hasEnv("SESSION_SECRET"),
     githubApp: hasEnv("GITHUB_APP_ID") && (hasEnv("GITHUB_APP_PRIVATE_KEY") || hasEnv("GITHUB_APP_PRIVATE_KEY_PATH")),

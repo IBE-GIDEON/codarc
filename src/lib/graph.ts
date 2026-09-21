@@ -65,6 +65,8 @@ export type RepoMap = {
   repo: string;
   branch: string;
   description: string | null;
+  /** Only its owner and their team can open a private one. */
+  isPrivate?: boolean;
   /** Frameworks we recognised, e.g. ["FastAPI", "Next.js"]. */
   stacks: string[];
   nodes: GraphNode[];

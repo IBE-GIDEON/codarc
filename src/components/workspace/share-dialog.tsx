@@ -18,10 +18,13 @@ export function ShareDialog({
   repo,
   layoutKey,
   selected,
+  isPrivate = false,
   onClose,
 }: {
   owner: string;
   repo: string;
+  /** A private project's map only opens for you and your team. */
+  isPrivate?: boolean;
   /** Where the canvas keeps this map's arrangement, so the link can carry it. */
   layoutKey: string;
   selected: GraphNode | null;
@@ -105,8 +108,9 @@ export function ShareDialog({
               Share this map
             </h2>
             <p className="mt-1 text-[13px] leading-[1.5] text-secondary">
-              Anyone with the link can look around — no account, nothing to
-              install. They can&apos;t change anything.
+              {isPrivate
+                ? "This project is private, so the link only opens for you and people on your team. Nobody else can see your code."
+                : "Anyone with the link can look around — no account, nothing to install. They can't change anything."}
             </p>
           </div>
           <IconButton size="sm" onClick={onClose} aria-label="Close">

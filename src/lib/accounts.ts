@@ -14,9 +14,14 @@ export type AccountRow = {
   stripe_customer_id: string | null;
 };
 
-/** Called on every sign-in so the account row always reflects GitHub. */
-export async function upsertAccount(user: Omit<User, "at">) {
-  if (!isDbConfigured()) return;
+/**
+ * Called on every sign-in so the account row always reflects GitHub.
+ * Returns the failure, if any, so callers that need the row can say why.
+ */
+export async function upsertAccount(
+  user: Omit<User, "at">,
+): Promise<{ message: string; code?: string } | null> {
+  if (!isDbConfigured()) return null;
   const { error } = await db()
     .from("accounts")
     .upsert(
@@ -29,7 +34,8 @@ export async function upsertAccount(user: Omit<User, "at">) {
       },
       { onConflict: "github_id", ignoreDuplicates: false },
     );
-  if (error) console.error("[accounts] upsert", error.message);
+  if (error) console.error("[accounts] upsert", error.code ?? "", error.message);
+  return error;
 }
 
 export async function getAccount(githubId: number): Promise<AccountRow | null> {

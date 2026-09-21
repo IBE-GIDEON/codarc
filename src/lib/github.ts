@@ -1,5 +1,9 @@
 import { env } from "@/lib/env";
-/** Read-only GitHub access for public repositories. */
+/**
+ * Read-only GitHub access. Public repositories need nothing; a private one is
+ * read with a short-lived token for that repository alone, which `access.ts`
+ * only hands out to its owner and their team.
+ */
 
 export class RepoError extends Error {
   constructor(
@@ -13,18 +17,25 @@ export class RepoError extends Error {
 
 const API = "https://api.github.com";
 
-function headers() {
+function headers(repoToken?: string) {
   const h: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": "codarc",
   };
-  // Optional: lifts the anonymous 60-requests-an-hour ceiling.
-  const token = env("GITHUB_TOKEN");
+  // GITHUB_TOKEN is optional: it lifts the anonymous 60-an-hour ceiling.
+  const token = repoToken ?? env("GITHUB_TOKEN");
   if (token) {
     h.Authorization = `Bearer ${token}`;
   }
   return h;
 }
+
+/**
+ * Public answers can be shared between visitors for a few minutes. Anything
+ * read with someone's own token never goes in a shared cache at all.
+ */
+const caching = (repoToken?: string): RequestInit =>
+  repoToken ? { cache: "no-store" } : { next: { revalidate: 300 } };
 
 /** Accepts a full URL, "owner/repo", or "github.com/owner/repo". */
 export function parseRepoInput(input: string): { owner: string; repo: string } {
@@ -54,10 +65,11 @@ export type RepoMeta = {
 export async function fetchRepoMeta(
   owner: string,
   repo: string,
+  repoToken?: string,
 ): Promise<RepoMeta> {
   const res = await fetch(`${API}/repos/${owner}/${repo}`, {
-    headers: headers(),
-    next: { revalidate: 300 },
+    headers: headers(repoToken),
+    ...caching(repoToken),
   });
 
   if (res.status === 404) {
@@ -101,10 +113,11 @@ export async function fetchTree(
   owner: string,
   repo: string,
   branch: string,
+  repoToken?: string,
 ): Promise<{ entries: TreeEntry[]; truncated: boolean }> {
   const res = await fetch(
     `${API}/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
-    { headers: headers(), next: { revalidate: 300 } },
+    { headers: headers(repoToken), ...caching(repoToken) },
   );
 
   if (!res.ok) {
@@ -129,28 +142,39 @@ export async function fetchTree(
 
 const MAX_BYTES = 180_000;
 
-/** Pulls file contents from the raw CDN, which is far more generous than the API. */
+/**
+ * Pulls file contents. Public files come from the raw CDN, which is far more
+ * generous than the API; private ones come through the API with the token.
+ */
 export async function fetchFiles(
   owner: string,
   repo: string,
   branch: string,
   paths: string[],
+  repoToken?: string,
   concurrency = 12,
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   let cursor = 0;
 
+  const urlFor = (path: string) => {
+    const encoded = path.split("/").map(encodeURIComponent).join("/");
+    return repoToken
+      ? `${API}/repos/${owner}/${repo}/contents/${encoded}?ref=${encodeURIComponent(branch)}`
+      : `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encoded}`;
+  };
+  const init: RequestInit = repoToken
+    ? {
+        headers: { ...headers(repoToken), Accept: "application/vnd.github.raw+json" },
+        ...caching(repoToken),
+      }
+    : { headers: { "User-Agent": "codarc" }, ...caching() };
+
   async function worker() {
     while (cursor < paths.length) {
       const path = paths[cursor++];
       try {
-        const res = await fetch(
-          `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path
-            .split("/")
-            .map(encodeURIComponent)
-            .join("/")}`,
-          { headers: { "User-Agent": "codarc" }, next: { revalidate: 300 } },
-        );
+        const res = await fetch(urlFor(path), init);
         if (!res.ok) continue;
         const text = await res.text();
         if (text.length <= MAX_BYTES) out.set(path, text);

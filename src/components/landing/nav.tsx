@@ -51,8 +51,11 @@ export function Nav() {
 
           <div className="ml-auto flex items-center gap-1.5">
             <ThemeToggle className="hidden sm:inline-flex" />
+            {/* The dashboard sends anyone signed out to GitHub first, then
+                brings them straight back — so this is both "log in" and
+                "go to my projects". */}
             <a
-              href="#"
+              href="/dashboard"
               className="notion-hover hidden px-2.5 py-1.5 text-[14px] text-secondary hover:text-primary sm:block"
             >
               Log in
