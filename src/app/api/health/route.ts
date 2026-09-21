@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, dbKeyKind, isDbConfigured } from "@/lib/db";
-import { hasEnv } from "@/lib/env";
+import { env, hasEnv, supabaseUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +18,7 @@ export async function GET() {
     | "not configured"
     | "tables missing"
     | "rejected"
+    | "wrong address"
     | "wrong key — use the secret one" = "not configured";
   const missing: string[] = [];
   const keyKind = dbKeyKind();
@@ -30,8 +31,14 @@ export async function GET() {
   } else if (isDbConfigured()) {
     database = "connected";
     for (const table of tables) {
-      const { error } = await db().from(table).select("*", { count: "exact", head: true });
+      // A real read, not a HEAD: a HEAD has no body, so errors arrive blank
+      // and a broken setup can pass for a working one.
+      const { error } = await db().from(table).select("*").limit(1);
       if (!error) continue;
+      if (error.code === "PGRST125") {
+        database = "wrong address";
+        break;
+      }
       // Wrong key and missing schema look different, and need different fixes.
       if (/JWT|Invalid API key|apikey|401|403|permission/i.test(error.message)) {
         database = "rejected";
@@ -41,18 +48,24 @@ export async function GET() {
     }
     if (database === "connected" && missing.length) database = "tables missing";
 
-    // Signing in saves an account row. None visible after you've signed in
-    // means saves are being refused, even though reading "works".
+    // Signing in saves an account row. None after you've signed in means
+    // saves are being refused even though reading works.
     if (database === "connected") {
       const { data } = await db().from("accounts").select("github_id").limit(1);
       accountsSaved = Boolean(data?.length);
     }
   }
 
+  // Codarc trims a pasted REST address back to the project address itself,
+  // but it's worth knowing the value in Vercel is longer than it needs to be.
+  const rawUrl = env("SUPABASE_URL");
+  const urlTrimmed = Boolean(rawUrl && rawUrl.replace(/\/+$/, "") !== supabaseUrl());
+
   return NextResponse.json({
     database,
     ...(missing.length ? { missingTables: missing } : {}),
     databaseKey: keyKind,
+    ...(urlTrimmed ? { databaseUrl: "had extra on the end — Codarc ignores it" } : {}),
     ...(accountsSaved !== undefined ? { accountsSaved } : {}),
     liveCursors: hasEnv("SUPABASE_ANON_KEY") && hasEnv("SESSION_SECRET"),
     signIn: hasEnv("GITHUB_APP_CLIENT_ID") && hasEnv("GITHUB_APP_CLIENT_SECRET") && hasEnv("SESSION_SECRET"),

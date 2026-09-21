@@ -16,3 +16,21 @@ export function env(name: string): string | undefined {
 export function hasEnv(name: string): boolean {
   return env(name) !== undefined;
 }
+
+/**
+ * The Supabase project address, reduced to just `https://<ref>.supabase.co`.
+ *
+ * Supabase's dashboard also shows the REST address (`…/rest/v1/`), and it's
+ * the one people copy. The client adds `/rest/v1` itself, so the doubled path
+ * makes every read and write miss (PGRST125) — while reads fail quietly
+ * enough to look like empty tables.
+ */
+export function supabaseUrl(): string | undefined {
+  const raw = env("SUPABASE_URL");
+  if (!raw) return undefined;
+  try {
+    return new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`).origin;
+  } catch {
+    return raw;
+  }
+}

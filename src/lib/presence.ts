@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
-import { env } from "@/lib/env";
+import { env, supabaseUrl } from "@/lib/env";
 
 /**
  * Live cursors are Studio-only, and the browser talks to Supabase Realtime
@@ -23,5 +23,5 @@ export function presenceChannel(billingId: number, repo: string): string {
 }
 
 export function canPresence() {
-  return Boolean(env("SUPABASE_URL") && env("SUPABASE_ANON_KEY") && env("SESSION_SECRET"));
+  return Boolean(supabaseUrl() && env("SUPABASE_ANON_KEY") && env("SESSION_SECRET"));
 }

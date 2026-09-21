@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { env, supabaseUrl } from "@/lib/env";
 
 /**
  * The database, server-side only.
@@ -14,7 +14,7 @@ import { env } from "@/lib/env";
 let client: SupabaseClient | null = null;
 
 export function isDbConfigured() {
-  return Boolean(env("SUPABASE_URL") && env("SUPABASE_SERVICE_ROLE_KEY"));
+  return Boolean(supabaseUrl() && env("SUPABASE_SERVICE_ROLE_KEY"));
 }
 
 /**
@@ -65,7 +65,7 @@ export function explainWriteFailure(
 
 export function db(): SupabaseClient {
   if (!client) {
-    client = createClient(env("SUPABASE_URL")!, env("SUPABASE_SERVICE_ROLE_KEY")!, {
+    client = createClient(supabaseUrl()!, env("SUPABASE_SERVICE_ROLE_KEY")!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }

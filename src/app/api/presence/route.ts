@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/session";
 import { atLeast, entitlement } from "@/lib/accounts";
 import { canPresence, presenceChannel } from "@/lib/presence";
-import { env } from "@/lib/env";
+import { env, supabaseUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     enabled: true,
-    url: env("SUPABASE_URL"),
+    url: supabaseUrl(),
     // The anon key is designed to be public; every table has RLS with no
     // policies, so it can't read any data. It only opens the realtime socket.
     anonKey: env("SUPABASE_ANON_KEY"),
