@@ -118,7 +118,7 @@ export function HandoverView({
   }, [owner, repo]);
 
   function download(doc: Handover) {
-    const blob = new Blob([toMarkdown(doc)], {
+    const blob = new Blob([toMarkdown(doc, window.location.host)], {
       type: "text/markdown;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);

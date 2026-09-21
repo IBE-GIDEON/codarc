@@ -108,7 +108,8 @@ export async function POST(request: Request) {
       "",
       "---",
       "",
-      "Drafted by [Codarc](https://codarc.dev). Review it like any other pull request.",
+      // Wherever Codarc is actually running — never a domain nobody owns.
+      `Drafted by [Codarc](${new URL(request.url).origin}). Review it like any other pull request.`,
     ].join("\n");
 
     const pr = await openPullRequest({
