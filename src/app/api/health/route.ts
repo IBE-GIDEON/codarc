@@ -21,6 +21,7 @@ export async function GET() {
     | "wrong key — use the secret one" = "not configured";
   const missing: string[] = [];
   const keyKind = dbKeyKind();
+  let accountsSaved: boolean | undefined;
 
   // The public key connects fine and reads empty tables, so it would pass
   // every check below while every save quietly fails.
@@ -39,12 +40,20 @@ export async function GET() {
       missing.push(table);
     }
     if (database === "connected" && missing.length) database = "tables missing";
+
+    // Signing in saves an account row. None visible after you've signed in
+    // means saves are being refused, even though reading "works".
+    if (database === "connected") {
+      const { data } = await db().from("accounts").select("github_id").limit(1);
+      accountsSaved = Boolean(data?.length);
+    }
   }
 
   return NextResponse.json({
     database,
     ...(missing.length ? { missingTables: missing } : {}),
     databaseKey: keyKind,
+    ...(accountsSaved !== undefined ? { accountsSaved } : {}),
     liveCursors: hasEnv("SUPABASE_ANON_KEY") && hasEnv("SESSION_SECRET"),
     signIn: hasEnv("GITHUB_APP_CLIENT_ID") && hasEnv("GITHUB_APP_CLIENT_SECRET") && hasEnv("SESSION_SECRET"),
     githubApp: hasEnv("GITHUB_APP_ID") && (hasEnv("GITHUB_APP_PRIVATE_KEY") || hasEnv("GITHUB_APP_PRIVATE_KEY_PATH")),

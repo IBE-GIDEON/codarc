@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { db, explainWriteFailure, isDbConfigured } from "@/lib/db";
 import { MAX_SEATS } from "@/lib/plans";
 import { upsertAccount, type Entitlement } from "@/lib/accounts";
+import { isOwner, lockEnabled } from "@/lib/owner";
 import type { User } from "@/lib/session";
 
 /**
@@ -102,9 +103,15 @@ export async function ensureTeam(user: User, ent: Entitlement): Promise<TeamResu
     return { ok: true, value: existing };
   }
 
-  const setupFailed = (where: string, failure: { message: string; code?: string } | null) => {
+  const setupFailed = async (where: string, failure: { message: string; code?: string } | null) => {
     const why = explainWriteFailure(where, failure);
-    return fail("We couldn't set up your team", why.hint, 500);
+    // Whoever holds the owner key runs Codarc — show them the database's own
+    // words so they can fix it. Customers only ever see the plain version.
+    const detail =
+      lockEnabled() && (await isOwner())
+        ? ` [${where}: ${failure ? `${failure.code ?? ""} ${failure.message}`.trim() : "nothing came back"}]`
+        : "";
+    return fail("We couldn't set up your team", why.hint + detail, 500);
   };
 
   // The team needs your account row to hang off.
