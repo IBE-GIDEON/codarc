@@ -12,7 +12,14 @@ import { createClient, type RealtimeChannel, type SupabaseClient } from "@supaba
  */
 
 type Person = { id: number; login: string; name: string; avatar: string };
-type Cursor = { x: number; y: number; at: number };
+type Cursor = {
+  x: number;
+  y: number;
+  /** Last movement. */
+  at: number;
+  /** When the name bubble last popped up. */
+  labelAt: number;
+};
 
 type Presence = {
   enabled: boolean;
@@ -56,6 +63,12 @@ function assignColours(ids: number[]): Map<number, string> {
 
 const SEND_EVERY_MS = 45;
 const STALE_MS = 8000;
+/** How often an open map re-checks who's allowed in. */
+const RECHECK_MS = 15_000;
+/** The name bubble: how long it stays, and what brings it back. */
+const LABEL_MS = 2500;
+const LABEL_AFTER_IDLE_MS = 4000;
+const LABEL_EVERY_MS = 25_000;
 
 export function useLiveCursors(owner: string, repo: string, active = true) {
   const [config, setConfig] = React.useState<Presence>({ enabled: false });
@@ -63,23 +76,52 @@ export function useLiveCursors(owner: string, repo: string, active = true) {
   // Said out loud on the map, so "no cursors" is never a mystery.
   const [status, setStatus] = React.useState<"connecting" | "live" | "failed">("connecting");
   const [cursors, setCursors] = React.useState<Record<number, Cursor>>({});
+  // Nudges a redraw when a name bubble's time is up, even if nobody moved.
+  const [tick, bump] = React.useReducer((n: number) => n + 1, 0);
 
+  // The config we last acted on, for comparing new answers against.
+  const configRef = React.useRef<Presence>({ enabled: false });
   const channelRef = React.useRef<RealtimeChannel | null>(null);
   const lastSent = React.useRef(0);
   const pending = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Ask the server whether this person gets a room at all.
+  // Ask the server whether this person gets a room, and which one — then keep
+  // asking. Someone removed from the team drops out within seconds; someone
+  // added, or a room that moved because the team changed, is picked up the
+  // same way. Only a real change reconnects, so the steady state is silent.
   React.useEffect(() => {
     if (!active) return;
     let live = true;
-    fetch(`/api/presence?repo=${encodeURIComponent(`${owner}/${repo}`)}`)
-      .then((r) => r.json())
-      .then((c: Presence) => {
-        if (live) setConfig(c);
-      })
-      .catch(() => {});
+    const url = `/api/presence?repo=${encodeURIComponent(`${owner}/${repo}`)}`;
+    const load = () =>
+      fetch(url, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((c: Presence) => {
+          if (!live) return;
+          const prev = configRef.current;
+          const same =
+            prev.enabled === c.enabled &&
+            prev.channel === c.channel &&
+            prev.me?.name === c.me?.name &&
+            prev.me?.avatar === c.me?.avatar;
+          if (same) return;
+          configRef.current = c;
+          // A different room (or none): start clean rather than show people
+          // and cursors from the old one.
+          setStatus("connecting");
+          setPeople([]);
+          setCursors({});
+          setConfig(c);
+        })
+        .catch(() => {});
+    load();
+    const timer = window.setInterval(load, RECHECK_MS);
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
     return () => {
       live = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
     };
   }, [owner, repo, active]);
 
@@ -122,10 +164,22 @@ export function useLiveCursors(owner: string, repo: string, active = true) {
       })
       .on("broadcast", { event: "cursor" }, ({ payload }) => {
         const { id, x, y } = payload as { id: number; x: number | null; y: number | null };
+        const now = Date.now();
         setCursors((prev) => {
           const next = { ...prev };
-          if (x === null || y === null) delete next[id];
-          else next[id] = { x, y, at: Date.now() };
+          if (x === null || y === null) {
+            delete next[id];
+            return next;
+          }
+          const before = prev[id];
+          // The name pops up when someone arrives, starts moving again after
+          // a pause, or every so often while they keep going — not constantly.
+          const showName =
+            !before ||
+            now - before.at > LABEL_AFTER_IDLE_MS ||
+            now - before.labelAt > LABEL_EVERY_MS;
+          if (showName) window.setTimeout(bump, LABEL_MS + 50);
+          next[id] = { x, y, at: now, labelAt: showName ? now : before.labelAt };
           return next;
         });
       })
@@ -227,26 +281,35 @@ export function useLiveCursors(owner: string, repo: string, active = true) {
                 strokeLinejoin="round"
               />
             </svg>
-            <div
-              className="mt-0.5 ml-3 flex items-center gap-1.5 rounded-full py-0.5 pr-2.5 pl-0.5 shadow-popover"
-              style={{ background: colour }}
-            >
+            {/* Their face stays by the arrow; the name is a small bubble that
+                shows up now and then and fades — never a permanent banner. */}
+            <div className="mt-0.5 ml-3 flex items-center gap-1">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p.avatar}
                 alt=""
-                width={20}
-                height={20}
-                className="size-5 rounded-full ring-2 ring-white/90"
+                width={16}
+                height={16}
+                className="size-4 shrink-0 rounded-full"
+                style={{ boxShadow: `0 0 0 1.5px white, 0 0 0 3px ${colour}` }}
               />
-              <span className="text-[11.5px] font-medium whitespace-nowrap text-white">
+              <span
+                className="rounded-md px-1.5 py-0.5 text-[11px] leading-[1.3] font-medium whitespace-nowrap text-white shadow-popover"
+                style={{
+                  background: colour,
+                  opacity: Date.now() - c.labelAt < LABEL_MS ? 1 : 0,
+                  transition: "opacity 100ms ease-out",
+                }}
+              >
                 {p.name}
               </span>
             </div>
           </div>
         );
       }),
-    [others, cursors, colours],
+    // `tick` so a fading name bubble redraws even when nobody moved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [others, cursors, colours, tick],
   );
 
   return {

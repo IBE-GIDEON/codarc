@@ -3,7 +3,7 @@ import { loadDraft, markSent } from "@/lib/drafts";
 import { GithubAppError, isConfigured, openPullRequest } from "@/lib/github-app";
 import { repoAccess, writeToken } from "@/lib/access";
 import { currentUser } from "@/lib/session";
-import { hasActivePlan } from "@/lib/billing";
+import { entitlement } from "@/lib/accounts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -20,7 +20,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!(await hasActivePlan(user))) {
+  const ent = await entitlement(user);
+  if (ent.plan === "none") {
     return NextResponse.json(
       {
         error: "You need a plan to send changes",
@@ -28,6 +29,18 @@ export async function POST(request: Request) {
         needsPlan: true,
       },
       { status: 402 },
+    );
+  }
+  // Checked again here, not just at drafting: the owner may have switched
+  // them to view only in between.
+  if (!ent.canEdit) {
+    return NextResponse.json(
+      {
+        error: "You can look, but not change things",
+        hint: "Your team's owner has set you to view only, so this change wasn't sent.",
+        viewOnly: true,
+      },
+      { status: 403 },
     );
   }
 

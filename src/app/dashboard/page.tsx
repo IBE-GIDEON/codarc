@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { canSignIn, currentUser } from "@/lib/session";
-import { entitlement, getAccount } from "@/lib/accounts";
+import { displayName, entitlement, getAccount } from "@/lib/accounts";
+import { NameForm } from "@/components/account/name-form";
 import { WaitForPlan } from "@/components/dashboard/wait-for-plan";
 import { SignInAgain } from "@/components/dashboard/sign-in-again";
 import { isDbConfigured } from "@/lib/db";
@@ -64,12 +65,17 @@ export default async function Dashboard({
       ? "owner"
       : null;
   const showTeam = ent.plan === "studio" || Boolean(team);
-  const firstName = (user.name || user.login).split(" ")[0];
+  const name = displayName(account, user);
+  const firstName = name.split(" ")[0];
+  // Asked once: the column exists (so `undefined` means "not added yet") and
+  // they haven't chosen. Choosing — even "keep my GitHub name" — ends it.
+  const askName = Boolean(account && "display_name" in account && account.display_name === null);
+  const shown = { ...user, name };
 
   return (
     <div className="flex h-dvh bg-page">
       <DashboardSidebar
-        user={user}
+        user={shown}
         planName={planName}
         planNote={planNote}
         showTeam={showTeam}
@@ -77,7 +83,7 @@ export default async function Dashboard({
       />
 
       <div className="min-w-0 flex-1 overflow-y-auto">
-        <DashboardTopBar user={user} showTeam={showTeam} />
+        <DashboardTopBar user={shown} showTeam={showTeam} />
         <div className="px-6 sm:px-12">
           <main className="mx-auto w-full max-w-reading pt-10 pb-24 md:pt-20">
             <h1 className="text-[34px] leading-[1.2] font-bold tracking-[-0.03em] text-primary sm:text-[40px]">
@@ -86,6 +92,26 @@ export default async function Dashboard({
             <p className="mt-2 text-[16px] leading-[1.5] text-secondary">
               Pick a project to see how it works — or paste any GitHub link.
             </p>
+
+            {askName && (
+              <div className="mt-6 rounded-sm bg-c-blue-bg p-4">
+                <div className="text-[14px] font-medium text-primary">
+                  What should your teammates call you?
+                </div>
+                <p className="mt-0.5 mb-3 text-[13px] leading-[1.5] text-secondary">
+                  Shown on your team and next to your cursor on a map. Change it any
+                  time in Your account.
+                </p>
+                <NameForm
+                  quiet
+                  initial={user.name ?? ""}
+                  secondary={{
+                    label: `Keep "${user.name || user.login}"`,
+                    name: user.name || user.login,
+                  }}
+                />
+              </div>
+            )}
 
             {paid && planName && (
               <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm bg-c-green-bg px-4 py-3 text-[14px] leading-6 text-primary">

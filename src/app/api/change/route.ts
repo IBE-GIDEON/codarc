@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ChangeError, proposeChange } from "@/lib/change";
 import { saveDraft } from "@/lib/drafts";
+import { allow } from "@/lib/rate-limit";
 import { RepoError, parseRepoInput } from "@/lib/github";
 import type { GraphNode } from "@/lib/graph";
 import { currentUser } from "@/lib/session";
@@ -35,6 +36,27 @@ export async function POST(request: Request) {
         needsPlan: true,
       },
       { status: 402 },
+    );
+  }
+  // Each draft costs real money; a stuck button or a script shouldn't be
+  // able to fire off dozens in a minute.
+  if (!allow(`change:${user.id}`, 6, 60_000)) {
+    return NextResponse.json(
+      {
+        error: "One moment",
+        hint: "That's several changes in a row. Give it a minute, then ask again.",
+      },
+      { status: 429 },
+    );
+  }
+  if (!ent.canEdit) {
+    return NextResponse.json(
+      {
+        error: "You can look, but not change things",
+        hint: "Your team's owner has set you to view only. Ask them to switch you to \"Can edit\" on their team page.",
+        viewOnly: true,
+      },
+      { status: 403 },
     );
   }
 

@@ -4,6 +4,7 @@ import { RepoError, parseRepoInput } from "@/lib/github";
 import { GithubAppError } from "@/lib/github-app";
 import { readToken, repoAccess } from "@/lib/access";
 import { currentUser } from "@/lib/session";
+import { allow, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,6 +41,18 @@ export async function GET(request: Request) {
 
     const hit = cache.get(key);
     if (fresh(hit)) return NextResponse.json(hit!.body);
+
+    // Cached answers are free; a fresh read costs GitHub requests, so those
+    // are rationed per visitor.
+    if (!allow(`map:${clientKey(request)}`, 20, 60_000)) {
+      return NextResponse.json(
+        {
+          error: "That's a lot of maps in a minute",
+          hint: "Give it a minute and try again — maps you've already opened still load straight away.",
+        },
+        { status: 429 },
+      );
+    }
 
     try {
       const map = await analyzeRepo(owner, repo);

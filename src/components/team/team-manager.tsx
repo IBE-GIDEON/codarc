@@ -93,6 +93,25 @@ export function TeamManager({
     }
   }
 
+  async function setEdit(id: number, canEdit: boolean) {
+    setBusy(`edit:${id}`);
+    const json = await call("/api/team/permission", { memberId: id, canEdit });
+    setBusy(null);
+    if (json) router.refresh();
+  }
+
+  // Keep the page true without a reload: someone joining, leaving, or being
+  // switched to view only shows up here within seconds.
+  React.useEffect(() => {
+    const refresh = () => router.refresh();
+    const timer = window.setInterval(refresh, 15_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [router]);
+
   async function leave() {
     setBusy("leave");
     const json = await call("/api/team/leave");
@@ -159,13 +178,28 @@ export function TeamManager({
                       {m.githubId === meId && <span className="text-tertiary"> · you</span>}
                     </div>
                     <div className="truncate text-[12px] text-tertiary">
-                      @{m.login} · {m.role === "owner" ? "Owner" : "Member"}
+                      @{m.login} ·{" "}
+                      {m.role === "owner" ? "Owner" : m.canEdit ? "Can edit" : "View only"}
                     </div>
                   </div>
                   {/* Always on show, not hover-only: an owner looking for
                       "how do I remove someone" shouldn't have to discover it. */}
                   {isOwner && m.role !== "owner" && !asking && (
                     <div className="flex shrink-0 items-center gap-1">
+                      {/* Notion's share-menu pattern: a quiet dropdown, not a switch. */}
+                      <label className="sr-only" htmlFor={`edit-${m.githubId}`}>
+                        What {who} can do
+                      </label>
+                      <select
+                        id={`edit-${m.githubId}`}
+                        value={m.canEdit ? "edit" : "view"}
+                        disabled={busy !== null}
+                        onChange={(e) => setEdit(m.githubId, e.target.value === "edit")}
+                        className="h-7 cursor-pointer rounded-sm bg-transparent px-1.5 text-[12.5px] text-secondary hover:bg-hover focus:outline-none"
+                      >
+                        <option value="edit">Can edit</option>
+                        <option value="view">View only</option>
+                      </select>
                       {/* Replacing hands out a new invite, which needs Studio.
                           Removing someone never does. */}
                       {active && (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CreditCard, Globe, Home, LogOut, Users } from "lucide-react";
+import { CreditCard, Globe, Home, LogOut, UserRound, Users } from "lucide-react";
 import { Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
@@ -74,6 +74,7 @@ export function DashboardSidebar({ user, planName, planNote, showTeam, paysOwn }
             label={planName ? "Plans" : "Choose a plan"}
           />
         )}
+        <Row href="/account" icon={UserRound} label="Your account" />
         <Row href="/?site" icon={Globe} label="Codarc website" />
       </nav>
 

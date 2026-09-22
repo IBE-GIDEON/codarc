@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isConfigured } from "@/lib/github-app";
-import { atLeast, entitlement } from "@/lib/accounts";
+import { atLeast, displayName, entitlement, getAccount } from "@/lib/accounts";
 import { usageSummary } from "@/lib/usage";
 import { canSignIn, currentUser } from "@/lib/session";
 import { hasEnv } from "@/lib/env";
@@ -25,16 +25,19 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get("as") === "customer";
 
   const ent = asCustomer
-    ? { plan: "none" as const, via: null, billingId: null, limits: null }
+    ? { plan: "none" as const, via: null, billingId: null, limits: null, canEdit: false }
     : await entitlement(user);
   const paid = ent.plan !== "none";
+  const account = user ? await getAccount(user.id) : null;
 
   return NextResponse.json({
     user: user && {
       login: user.login,
-      name: user.name,
+      name: displayName(account, user),
       avatar: user.avatar,
     },
+    // A teammate the owner set to view-only can look but not change.
+    canEdit: paid && ent.canEdit,
     canSignIn: canSignIn(),
     signedIn: Boolean(user),
     plan: ent.plan,
@@ -42,7 +45,7 @@ export async function GET(request: Request) {
     hasPlan: paid,
     isStudio: atLeast(ent.plan, "studio"),
     usage: paid ? await usageSummary(ent) : null,
-    canDraft: hasEnv("ANTHROPIC_API_KEY") && Boolean(user) && paid,
+    canDraft: hasEnv("ANTHROPIC_API_KEY") && Boolean(user) && paid && ent.canEdit,
     canSend: isConfigured(),
     connected: Boolean(installation),
   });

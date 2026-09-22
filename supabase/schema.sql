@@ -33,6 +33,10 @@ alter table accounts add column if not exists billing_customer_id     text;
 alter table accounts add column if not exists plan_ends_at            timestamptz;
 alter table accounts add column if not exists billing_synced_at       timestamptz;
 
+-- The name someone chose for themselves. GitHub's name (above) is refreshed
+-- on every sign-in; this one is only ever changed by its owner.
+alter table accounts add column if not exists display_name text;
+
 -- ---------------------------------------------------------------- projects
 -- A repository becomes one of your projects the first time you use a paid
 -- feature on it. Solo allows 3.
@@ -71,6 +75,9 @@ create table if not exists team_members (
   joined_at   timestamptz not null default now(),
   primary key (team_id, account_id)
 );
+
+-- The owner decides who may change code; everyone can always look.
+alter table team_members add column if not exists can_edit boolean not null default true;
 
 -- Someone can belong to one team at a time.
 create unique index if not exists one_team_per_person

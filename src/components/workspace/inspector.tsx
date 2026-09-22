@@ -90,6 +90,7 @@ export function Inspector({
     signedIn: boolean;
     canSignIn: boolean;
     hasPlan: boolean;
+    canEdit: boolean;
     canDraft: boolean;
     canSend: boolean;
     connected: boolean;
@@ -97,6 +98,7 @@ export function Inspector({
     signedIn: true,
     canSignIn: true,
     hasPlan: true,
+    canEdit: true,
     canDraft: true,
     canSend: true,
     connected: false,
@@ -104,17 +106,26 @@ export function Inspector({
   const legend = KIND_LEGEND.find((l) => l.kind === node.kind);
 
   // What this deployment can do lives on the server — the install cookie is
-  // httpOnly and the keys obviously aren't public.
+  // httpOnly and the keys obviously aren't public. Asked again every half
+  // minute and whenever the window comes back into focus, so a team owner
+  // switching someone to view only shows up here without a reload.
   React.useEffect(() => {
     let live = true;
-    fetch(capabilitiesUrl())
-      .then((r) => r.json())
-      .then((d) => {
-        if (live) setCaps(d);
-      })
-      .catch(() => {});
+    const load = () =>
+      fetch(capabilitiesUrl())
+        .then((r) => r.json())
+        .then((d) => {
+          if (live) setCaps(d);
+        })
+        .catch(() => {});
+    load();
+    const timer = window.setInterval(load, 30_000);
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
     return () => {
       live = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
@@ -288,6 +299,16 @@ export function Inspector({
               <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
                 Codarc reads your real code and writes a real change, so from
                 here on it costs money to run.
+              </p>
+            </div>
+          ) : !caps.canEdit ? (
+            <div className="rounded-sm bg-c-gray-bg p-3">
+              <p className="text-[12.5px] leading-[1.55] text-primary">
+                You&apos;re set to view only.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
+                Your team&apos;s owner decides who can change things. You can still
+                look around, search, and share this map.
               </p>
             </div>
           ) : !caps.canDraft ? (

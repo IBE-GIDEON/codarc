@@ -11,12 +11,22 @@ import { env, supabaseUrl } from "@/lib/env";
  * Everyone on one team viewing one repo lands in the same room; nobody else
  * can find it.
  */
-export function presenceChannel(billingId: number, repo: string): string {
+export function presenceChannel(
+  billingId: number,
+  repo: string,
+  /**
+   * Everyone on the team right now. It's part of the name, so removing
+   * someone moves the rest of the team to a new room — the old name they
+   * knew leads nowhere.
+   */
+  memberIds: number[] = [],
+): string {
   const secret = env("SESSION_SECRET");
   if (!secret) throw new Error("SESSION_SECRET is not set");
+  const members = [...memberIds].sort((a, b) => a - b).join(",");
   const digest = crypto
     .createHmac("sha256", secret)
-    .update(`codarc-presence:${billingId}:${repo.trim().toLowerCase()}`)
+    .update(`codarc-presence:${billingId}:${repo.trim().toLowerCase()}:${members}`)
     .digest("base64url")
     .slice(0, 24);
   return `map-${digest}`;

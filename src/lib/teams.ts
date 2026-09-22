@@ -2,7 +2,12 @@ import "server-only";
 import crypto from "node:crypto";
 import { db, explainWriteFailure, isDbConfigured } from "@/lib/db";
 import { MAX_SEATS } from "@/lib/plans";
-import { hasLiveStudio, upsertAccount, type Entitlement } from "@/lib/accounts";
+import {
+  displayName,
+  hasLiveStudio,
+  upsertAccount,
+  type Entitlement,
+} from "@/lib/accounts";
 import { isOwner, lockEnabled } from "@/lib/owner";
 import type { User } from "@/lib/session";
 
@@ -15,10 +20,13 @@ import type { User } from "@/lib/session";
 export type Member = {
   githubId: number;
   login: string;
+  /** The name to show: the one they chose, else GitHub's. */
   name: string | null;
   avatar: string | null;
   role: "owner" | "member";
   joinedAt: string;
+  /** May change code. Owners always can; the owner sets it for everyone else. */
+  canEdit: boolean;
 };
 
 export type Team = {
@@ -37,25 +45,35 @@ const fail = (error: string, hint: string, status = 400) =>
   ({ ok: false, error, hint, status }) as const;
 
 async function membersOf(teamId: string): Promise<Member[]> {
+  // `*` on both sides so columns added later (can_edit, display_name) can't
+  // break the read before they exist.
   const { data } = await db()
     .from("team_members")
-    .select("role, joined_at, accounts!inner(github_id, login, name, avatar)")
+    .select("*, accounts!inner(*)")
     .eq("team_id", teamId)
     .order("joined_at", { ascending: true });
 
   type Row = {
     role: "owner" | "member";
     joined_at: string;
-    accounts: { github_id: number; login: string; name: string | null; avatar: string | null };
+    can_edit?: boolean;
+    accounts: {
+      github_id: number;
+      login: string;
+      name: string | null;
+      display_name?: string | null;
+      avatar: string | null;
+    };
   };
 
   return ((data as Row[] | null) ?? []).map((r) => ({
     githubId: r.accounts.github_id,
     login: r.accounts.login,
-    name: r.accounts.name,
+    name: displayName(r.accounts, { login: r.accounts.login }),
     avatar: r.accounts.avatar,
     role: r.role,
     joinedAt: r.joined_at,
+    canEdit: r.role === "owner" || r.can_edit !== false,
   }));
 }
 
@@ -301,6 +319,41 @@ export async function removeMember(owner: User, memberId: number): Promise<TeamR
     .eq("account_id", memberId);
   if (error) {
     return fail("We couldn't remove them", explainWriteFailure("remove member", error).hint, 500);
+  }
+  return { ok: true };
+}
+
+/** The owner decides who may change code. Everyone on the team can always look. */
+export async function setMemberEdit(
+  owner: User,
+  memberId: number,
+  canEdit: boolean,
+): Promise<TeamResult> {
+  const team = await teamFor(owner.id);
+  if (!team || team.ownerId !== owner.id) {
+    return fail("Only the team owner can change this", "", 403);
+  }
+  if (memberId === owner.id) {
+    return fail("You can always change things", "You own the team.", 400);
+  }
+  if (!team.members.some((m) => m.githubId === memberId)) {
+    return fail("They're not on your team", "They may have left already.", 404);
+  }
+
+  const { error } = await db()
+    .from("team_members")
+    .update({ can_edit: canEdit })
+    .eq("team_id", team.id)
+    .eq("account_id", memberId);
+  if (error) {
+    // Most likely the can_edit column hasn't been added yet.
+    return fail(
+      "We couldn't change that",
+      error.message.includes("can_edit")
+        ? "The database needs one new line first. If you run Codarc: run the latest supabase/schema.sql."
+        : explainWriteFailure("member edit", error).hint,
+      500,
+    );
   }
   return { ok: true };
 }

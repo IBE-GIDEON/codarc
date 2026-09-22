@@ -67,6 +67,7 @@ export default async function TeamPage() {
       avatar: user.avatar,
       role: "owner" as const,
       joinedAt: new Date().toISOString(),
+      canEdit: true,
     },
   ];
   const owner = members.find((m) => m.role === "owner");

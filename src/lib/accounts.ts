@@ -15,7 +15,51 @@ export type AccountRow = {
   /** Set by payments; absent until the billing columns exist. */
   plan_ends_at?: string | null;
   billing_subscription_id?: string | null;
+  /** The name they chose. Absent until the column exists; null until they choose. */
+  display_name?: string | null;
 };
+
+/** What other people see: the name they chose, else GitHub's name, else the login. */
+export function displayName(
+  account: { display_name?: string | null; name?: string | null; login?: string } | null,
+  fallback: { name?: string | null; login: string },
+): string {
+  return (
+    account?.display_name?.trim() ||
+    account?.name?.trim() ||
+    fallback.name?.trim() ||
+    account?.login ||
+    fallback.login
+  );
+}
+
+/** Keeps a chosen name to something a person would call themselves. */
+export function cleanName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  // No control characters, collapsed spaces, a sensible length.
+  const name = Array.from(raw)
+    .filter((c) => c.charCodeAt(0) >= 32 && c.charCodeAt(0) !== 127)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+  return name.length >= 1 && name.length <= 60 ? name : null;
+}
+
+export async function setDisplayName(
+  user: Omit<User, "at">,
+  name: string,
+): Promise<{ message: string; code?: string } | null> {
+  if (!isDbConfigured()) return { message: "The database isn't connected." };
+  // Make sure the row exists first — the name hangs off it.
+  const failure = await upsertAccount(user);
+  if (failure) return failure;
+  const { error } = await db()
+    .from("accounts")
+    .update({ display_name: name, updated_at: new Date().toISOString() })
+    .eq("github_id", user.id);
+  if (error) console.error("[accounts] display name", error.code ?? "", error.message);
+  return error;
+}
 
 /**
  * Called on every sign-in so the account row always reflects GitHub.
@@ -65,9 +109,20 @@ export type Entitlement = {
   via: "own" | "team" | "owner-key" | null;
   billingId: number | null;
   limits: Limits | null;
+  /**
+   * May change code. Always true for someone on their own plan; a team
+   * owner can set a teammate to view-only.
+   */
+  canEdit: boolean;
 };
 
-const NONE: Entitlement = { plan: "none", via: null, billingId: null, limits: null };
+const NONE: Entitlement = {
+  plan: "none",
+  via: null,
+  billingId: null,
+  limits: null,
+  canEdit: false,
+};
 
 /**
  * Still allowed in:
@@ -95,6 +150,7 @@ export async function entitlement(user: User | null): Promise<Entitlement> {
       via: "owner-key",
       billingId: user.id,
       limits: planById("studio")!.limits,
+      canEdit: true,
     };
   }
 
@@ -108,27 +164,33 @@ export async function entitlement(user: User | null): Promise<Entitlement> {
       via: "own",
       billingId: user.id,
       limits: planById("studio")!.limits,
+      canEdit: true,
     };
   }
 
   // Not on Studio themselves — are they on somebody's Studio team? That
   // beats their own Solo plan: joining a team shouldn't leave you with less.
+  // `*` so a column that hasn't been added yet (can_edit) can't break the read.
   const { data: membership } = await db()
     .from("team_members")
-    .select("team_id, teams!inner(owner_id)")
+    .select("*, teams!inner(owner_id)")
     .eq("account_id", user.id)
     .maybeSingle();
 
-  const ownerId = (membership as { teams?: { owner_id?: number } } | null)?.teams
-    ?.owner_id;
+  const row = membership as { can_edit?: boolean; teams?: { owner_id?: number } } | null;
+  const ownerId = row?.teams?.owner_id;
   if (ownerId && ownerId !== user.id) {
     const owner = await getAccount(ownerId);
-    if (isLive(owner) && owner!.plan === "studio") {
+    const canEdit = row?.can_edit !== false;
+    // View-only on the team but paying for Solo themselves: their own plan
+    // still lets them change their own things, so that wins.
+    if (isLive(owner) && owner!.plan === "studio" && (canEdit || !ownLive)) {
       return {
         plan: "studio",
         via: "team",
         billingId: ownerId,
         limits: planById("studio")!.limits,
+        canEdit,
       };
     }
   }
@@ -139,6 +201,7 @@ export async function entitlement(user: User | null): Promise<Entitlement> {
       via: "own",
       billingId: user.id,
       limits: planById(own!.plan)!.limits,
+      canEdit: true,
     };
   }
 

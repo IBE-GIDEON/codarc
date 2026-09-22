@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/session";
-import { atLeast, entitlement } from "@/lib/accounts";
+import { atLeast, displayName, entitlement, getAccount } from "@/lib/accounts";
+import { teamFor } from "@/lib/teams";
 import { canPresence, presenceChannel } from "@/lib/presence";
 import { env, supabaseUrl } from "@/lib/env";
 
@@ -24,18 +25,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ enabled: false });
   }
 
-  return NextResponse.json({
-    enabled: true,
-    url: supabaseUrl(),
-    // The anon key is designed to be public; every table has RLS with no
-    // policies, so it can't read any data. It only opens the realtime socket.
-    anonKey: env("SUPABASE_ANON_KEY"),
-    channel: presenceChannel(ent.billingId, repo),
-    me: {
-      id: user.id,
-      login: user.login,
-      name: user.name || user.login,
-      avatar: user.avatar,
+  const [team, account] = await Promise.all([teamFor(ent.billingId), getAccount(user.id)]);
+
+  return NextResponse.json(
+    {
+      enabled: true,
+      url: supabaseUrl(),
+      // The anon key is designed to be public; every table has RLS with no
+      // policies, so it can't read any data. It only opens the realtime socket.
+      anonKey: env("SUPABASE_ANON_KEY"),
+      channel: presenceChannel(
+        ent.billingId,
+        repo,
+        team?.members.map((m) => m.githubId) ?? [],
+      ),
+      me: {
+        id: user.id,
+        login: user.login,
+        name: displayName(account, user),
+        avatar: user.avatar,
+      },
     },
-  });
+    // Asked again every few seconds by each open map; never worth caching.
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
