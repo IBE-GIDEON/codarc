@@ -25,12 +25,18 @@ export function TeamManager({
   members,
   seatsTotal,
   meId,
+  active,
+  ownerKeyOnly = false,
 }: {
   isOwner: boolean;
   ownerName: string;
   members: Member[];
   seatsTotal: number;
   meId: number;
+  /** The owner is paying for Studio right now. Teams only work while they are. */
+  active: boolean;
+  /** Codarc's own owner: Studio through the owner key, but not in the database. */
+  ownerKeyOnly?: boolean;
 }) {
   const router = useRouter();
   const [invite, setInvite] = React.useState<string | null>(null);
@@ -113,9 +119,11 @@ export function TeamManager({
             {members.length} of {seatsTotal} seats used
           </div>
           <div className="text-[12.5px] text-tertiary">
-            {isOwner
-              ? "Everyone here uses your Studio plan."
-              : `You're on ${ownerName}'s team, using their Studio plan.`}
+            {!active
+              ? "Paused — teams need an active Studio plan."
+              : isOwner
+                ? "Everyone here uses your Studio plan."
+                : `You're on ${ownerName}'s team, using their Studio plan.`}
           </div>
         </div>
         <div className="flex gap-1" aria-hidden>
@@ -158,13 +166,17 @@ export function TeamManager({
                       "how do I remove someone" shouldn't have to discover it. */}
                   {isOwner && m.role !== "owner" && !asking && (
                     <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        onClick={() => setConfirming({ id: m.githubId, action: "replace" })}
-                        disabled={busy !== null}
-                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-tertiary hover:bg-hover hover:text-primary"
-                      >
-                        <RefreshCw className="size-3.5" /> Replace
-                      </button>
+                      {/* Replacing hands out a new invite, which needs Studio.
+                          Removing someone never does. */}
+                      {active && (
+                        <button
+                          onClick={() => setConfirming({ id: m.githubId, action: "replace" })}
+                          disabled={busy !== null}
+                          className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-tertiary hover:bg-hover hover:text-primary"
+                        >
+                          <RefreshCw className="size-3.5" /> Replace
+                        </button>
+                      )}
                       <button
                         onClick={() => setConfirming({ id: m.githubId, action: "remove" })}
                         disabled={busy !== null}
@@ -232,8 +244,30 @@ export function TeamManager({
         </div>
       )}
 
-      {/* invite, or the way past five */}
-      {isOwner && (
+      {!active && (
+        <div className="mt-6 rounded-sm bg-c-yellow-bg p-4">
+          <div className="text-[14px] font-medium text-primary">
+            {isOwner ? "Your team is paused" : `${ownerName}'s team is paused`}
+          </div>
+          <p className="mt-1 text-[13px] leading-[1.55] text-secondary">
+            {ownerKeyOnly
+              ? "Your owner key gives you Studio, but only in your own browser. Teammates get Studio from your plan in the database — set your account to studio and active there, and the team comes back on."
+              : isOwner
+                ? "Teams come with Studio. Until your Studio plan is active again, nobody new can join and your teammates don't get Studio through you."
+                : `Teams come with Studio, and ${ownerName}'s Studio plan isn't active right now. It comes back on its own when theirs does.`}
+          </p>
+          {isOwner && !ownerKeyOnly && (
+            <a href={`/choose?back=${encodeURIComponent("/team")}`} className="mt-3 inline-block">
+              <Button variant="primary" size="lg">
+                See Studio
+              </Button>
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* invite, or the way past five — only while the team is live */}
+      {isOwner && active && (
         <div className="mt-8">
           {invite ? (
             <div>

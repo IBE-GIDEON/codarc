@@ -101,16 +101,18 @@ export async function entitlement(user: User | null): Promise<Entitlement> {
   if (!isDbConfigured()) return NONE;
 
   const own = await getAccount(user.id);
-  if (isLive(own)) {
+  const ownLive = isLive(own);
+  if (ownLive && own!.plan === "studio") {
     return {
-      plan: own!.plan,
+      plan: "studio",
       via: "own",
       billingId: user.id,
-      limits: planById(own!.plan)!.limits,
+      limits: planById("studio")!.limits,
     };
   }
 
-  // Not paying themselves — are they on somebody's team?
+  // Not on Studio themselves — are they on somebody's Studio team? That
+  // beats their own Solo plan: joining a team shouldn't leave you with less.
   const { data: membership } = await db()
     .from("team_members")
     .select("team_id, teams!inner(owner_id)")
@@ -131,7 +133,26 @@ export async function entitlement(user: User | null): Promise<Entitlement> {
     }
   }
 
+  if (ownLive) {
+    return {
+      plan: own!.plan,
+      via: "own",
+      billingId: user.id,
+      limits: planById(own!.plan)!.limits,
+    };
+  }
+
   return NONE;
+}
+
+/**
+ * Whether this account is paying for Studio right now, from the database —
+ * which is where teammates get their Studio from. (The owner key makes its
+ * holder Studio, but only in their own browser; it gives teammates nothing.)
+ */
+export async function hasLiveStudio(githubId: number): Promise<boolean> {
+  const account = await getAccount(githubId);
+  return isLive(account) && account!.plan === "studio";
 }
 
 /** Studio outranks Solo outranks nothing. */

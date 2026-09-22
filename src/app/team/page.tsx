@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser, canSignIn } from "@/lib/session";
-import { entitlement } from "@/lib/accounts";
+import { entitlement, hasLiveStudio } from "@/lib/accounts";
 import { isDbConfigured } from "@/lib/db";
 import { teamFor } from "@/lib/teams";
 import { MAX_SEATS } from "@/lib/plans";
@@ -70,6 +70,9 @@ export default async function TeamPage() {
     },
   ];
   const owner = members.find((m) => m.role === "owner");
+  // Teammates ride on the owner's Studio in the database. If that isn't
+  // live, the team is paused: nobody new joins and nobody gets Studio from it.
+  const active = await hasLiveStudio(team ? team.ownerId : user.id);
 
   return (
     <PageShell>
@@ -87,6 +90,8 @@ export default async function TeamPage() {
         members={members}
         seatsTotal={MAX_SEATS}
         meId={user.id}
+        active={active}
+        ownerKeyOnly={isOwner && !active && ent.via === "owner-key"}
       />
     </PageShell>
   );

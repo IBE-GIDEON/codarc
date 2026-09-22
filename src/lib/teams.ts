@@ -2,7 +2,7 @@ import "server-only";
 import crypto from "node:crypto";
 import { db, explainWriteFailure, isDbConfigured } from "@/lib/db";
 import { MAX_SEATS } from "@/lib/plans";
-import { upsertAccount, type Entitlement } from "@/lib/accounts";
+import { hasLiveStudio, upsertAccount, type Entitlement } from "@/lib/accounts";
 import { isOwner, lockEnabled } from "@/lib/owner";
 import type { User } from "@/lib/session";
 
@@ -204,6 +204,15 @@ export async function previewInvite(
   if (invite.used_at) return fail("This invite has already been used", "Each link works once. Ask for a new one.", 410);
   if (new Date(invite.expires_at).getTime() < Date.now()) {
     return fail("This invite has expired", "Invites last seven days. Ask for a new one.", 410);
+  }
+  // Teams are a Studio thing. A link sent while the owner was on Studio
+  // stops working the moment they aren't.
+  if (!(await hasLiveStudio(invite.teams.owner_id))) {
+    return fail(
+      "This team isn't open right now",
+      "Teams come with the Studio plan, and the person who invited you isn't on it at the moment. Ask them to check their plan.",
+      410,
+    );
   }
 
   const members = await membersOf(invite.team_id);
