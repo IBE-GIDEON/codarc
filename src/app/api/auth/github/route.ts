@@ -32,7 +32,9 @@ export async function GET(request: Request) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 600,
+    // Long enough to create a GitHub account on the way — the email code,
+    // the username, the puzzle — without the round trip timing out.
+    maxAge: 1800,
   });
   return response;
 }

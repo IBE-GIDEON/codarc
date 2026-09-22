@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { canSignIn, currentUser } from "@/lib/session";
 import { entitlement, getAccount } from "@/lib/accounts";
 import { WaitForPlan } from "@/components/dashboard/wait-for-plan";
+import { SignInAgain } from "@/components/dashboard/sign-in-again";
 import { isDbConfigured } from "@/lib/db";
 import { teamFor } from "@/lib/teams";
 import { DashboardSidebar, DashboardTopBar } from "@/components/dashboard/dashboard-sidebar";
@@ -27,15 +28,17 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; back?: string; billing?: string }>;
+  searchParams: Promise<{ paid?: string; back?: string; billing?: string; signin?: string }>;
 }) {
+  const { paid, back, billing, signin } = await searchParams;
   const user = await currentUser();
   if (!user) {
+    // A sign-in that just failed gets a page and a button, not another
+    // automatic trip to GitHub — that could bounce back and forth forever.
+    if (signin && signin !== "ok" && canSignIn()) return <SignInAgain reason={signin} />;
     if (canSignIn()) redirect(`/api/auth/github?back=${encodeURIComponent("/dashboard")}`);
     redirect("/?site");
   }
-
-  const { paid, back, billing } = await searchParams;
   const [ent, team, account] = await Promise.all([
     entitlement(user),
     isDbConfigured() ? teamFor(user.id) : Promise.resolve(null),
