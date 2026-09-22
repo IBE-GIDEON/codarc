@@ -434,7 +434,12 @@ export function Workspace({
 
         {live.enabled && (
           <div className="pointer-events-none absolute bottom-3 left-3 z-10">
-            <PresenceStack people={live.people} colours={live.colours} meId={live.me?.id} />
+            <PresenceStack
+              people={live.people}
+              colours={live.colours}
+              meId={live.me?.id}
+              status={live.status}
+            />
           </div>
         )}
 

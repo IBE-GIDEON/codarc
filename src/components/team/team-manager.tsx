@@ -154,19 +154,21 @@ export function TeamManager({
                       @{m.login} · {m.role === "owner" ? "Owner" : "Member"}
                     </div>
                   </div>
+                  {/* Always on show, not hover-only: an owner looking for
+                      "how do I remove someone" shouldn't have to discover it. */}
                   {isOwner && m.role !== "owner" && !asking && (
-                    <div className="reveal flex items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         onClick={() => setConfirming({ id: m.githubId, action: "replace" })}
                         disabled={busy !== null}
-                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-secondary hover:bg-hover hover:text-primary"
+                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-tertiary hover:bg-hover hover:text-primary"
                       >
                         <RefreshCw className="size-3.5" /> Replace
                       </button>
                       <button
                         onClick={() => setConfirming({ id: m.githubId, action: "remove" })}
                         disabled={busy !== null}
-                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-c-red hover:bg-c-red-bg"
+                        className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[12.5px] text-tertiary hover:bg-c-red-bg hover:text-c-red"
                       >
                         <UserMinus className="size-3.5" /> Remove
                       </button>
@@ -269,7 +271,7 @@ export function TeamManager({
                 All {seatsTotal} seats are taken
               </h2>
               <p className="mt-1.5 text-[13.5px] leading-[1.55] text-secondary">
-                To swap someone out, point at their name and choose Replace. For
+                To swap someone out, press Replace next to their name. For
                 a bigger team, send us a message — tell us how many people and
                 how many projects.
               </p>

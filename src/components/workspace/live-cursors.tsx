@@ -60,6 +60,8 @@ const STALE_MS = 8000;
 export function useLiveCursors(owner: string, repo: string, active = true) {
   const [config, setConfig] = React.useState<Presence>({ enabled: false });
   const [people, setPeople] = React.useState<Person[]>([]);
+  // Said out loud on the map, so "no cursors" is never a mystery.
+  const [status, setStatus] = React.useState<"connecting" | "live" | "failed">("connecting");
   const [cursors, setCursors] = React.useState<Record<number, Cursor>>({});
 
   const channelRef = React.useRef<RealtimeChannel | null>(null);
@@ -127,8 +129,14 @@ export function useLiveCursors(owner: string, repo: string, active = true) {
           return next;
         });
       })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") await channel.track(me);
+      .subscribe(async (state) => {
+        if (state === "SUBSCRIBED") {
+          setStatus("live");
+          await channel.track(me);
+        } else if (state === "CHANNEL_ERROR" || state === "TIMED_OUT") {
+          console.error("[live cursors]", state);
+          setStatus("failed");
+        }
       });
 
     // Someone whose tab went to sleep shouldn't leave a cursor frozen mid-map.
@@ -243,6 +251,7 @@ export function useLiveCursors(owner: string, repo: string, active = true) {
 
   return {
     enabled: config.enabled,
+    status,
     me,
     people,
     colours,
@@ -251,18 +260,51 @@ export function useLiveCursors(owner: string, repo: string, active = true) {
   };
 }
 
-/** Round faces for everyone in the room, each ringed in their cursor colour. */
+/**
+ * Round faces for everyone in the room, each ringed in their cursor colour.
+ * Alone, it says so — otherwise "I can't see my teammate" has no answer.
+ */
 export function PresenceStack({
   people,
   colours,
   meId,
+  status,
 }: {
   people: Person[];
   colours: Map<number, string>;
   meId?: number;
+  status: "connecting" | "live" | "failed";
 }) {
-  // Alone in the room, there's nothing worth showing.
-  if (people.length < 2) return null;
+  if (status !== "live" || people.length < 2) {
+    const me = people.find((p) => p.id === meId);
+    const text =
+      status === "failed"
+        ? "Live cursors couldn't connect — reload to try again"
+        : status === "connecting"
+          ? "Connecting live cursors…"
+          : "Only you here — teammates show up when they open this map";
+    return (
+      <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-raised/95 py-1 pr-3 pl-1 shadow-popover backdrop-blur-sm">
+        {me ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={me.avatar}
+            alt=""
+            title={`${me.name} (you)`}
+            width={22}
+            height={22}
+            className="size-[22px] rounded-full"
+          />
+        ) : (
+          <span
+            className="ml-1 size-2 rounded-full"
+            style={{ background: status === "failed" ? "var(--c-red)" : "var(--text-ghost)" }}
+          />
+        )}
+        <span className="text-[12px] text-tertiary">{text}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-raised/95 py-1 pr-3 pl-1 shadow-popover backdrop-blur-sm">
