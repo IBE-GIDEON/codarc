@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, PanelLeft, RefreshCw } from "lucide-react";
 import type { RepoMap } from "@/lib/graph";
 import { Canvas, type CanvasHandle } from "@/components/workspace/canvas";
 import { matchNodes } from "@/components/workspace/search";
@@ -13,8 +13,10 @@ import { ShareDialog } from "@/components/workspace/share-dialog";
 import { PresenceStack, useLiveCursors } from "@/components/workspace/live-cursors";
 import type { Offsets } from "@/lib/share";
 import { rememberMap } from "@/lib/recent";
+import { setSidebarOpen, useSidebarOpen } from "@/components/workspace/sidebar-state";
 import { Logo } from "@/components/logo";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 type Result =
   | { key: string; phase: "error"; error: string; hint: string }
@@ -181,6 +183,7 @@ export function Workspace({
   // Bumped on every replay so <Tour> remounts and starts from step one.
   const [tourRun, setTourRun] = React.useState(0);
   const [nonce, setNonce] = React.useState(0);
+  const sidebarOpen = useSidebarOpen();
   const [result, setResult] = React.useState<Result | null>(null);
   // Studio only — the server decides, and a shared-link viewer never asks.
   const live = useLiveCursors(owner, repo, !readOnly);
@@ -188,6 +191,34 @@ export function Workspace({
   // The request this render is waiting on. Anything stale is ignored, so a
   // fast retry can't land after a slow first attempt.
   const key = `${owner}/${repo}#${nonce}`;
+  // Everything at once is a wall of boxes. The map opens on the pages people
+  // can actually visit, and the machinery behind a page appears when that
+  // page is picked. "Everything" is there for whoever wants the whole thing.
+  const [showAll, setShowAll] = React.useState(false);
+
+  // Switching between "Pages" and "Everything" re-frames what's on screen,
+  // so the answer is never half off the edge.
+  React.useEffect(() => {
+    canvasRef.current?.fitAll();
+  }, [showAll]);
+
+  // ⌘\ (Ctrl+\ on Windows) hides and shows the sidebar, the way it does in
+  // Notion. Ignored while someone is typing, so it can't eat a keystroke.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "\\" || !(e.metaKey || e.ctrlKey)) return;
+      const el = document.activeElement;
+      const typing =
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        (el instanceof HTMLElement && el.isContentEditable);
+      if (typing) return;
+      e.preventDefault();
+      setSidebarOpen(!sidebarOpen);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -264,6 +295,37 @@ export function Workspace({
   const layoutKey = `codarc-layout:${owner}/${repo}`;
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null;
   const matches = matchNodes(map.nodes, query);
+
+  /*
+   * What's on screen right now. Pages are always there — they're the part
+   * everyone recognises, and the place to start. Picking one brings in what
+   * it leads to and what it sets off behind the scenes, two steps deep, so
+   * the map answers one question at a time instead of all of them at once.
+   */
+  const shown = (() => {
+    if (showAll || query) return map;
+
+    const keep = new Set(map.nodes.filter((n) => n.kind === "screen").map((n) => n.id));
+    if (selectedId) {
+      keep.add(selectedId);
+      let edge = new Set([selectedId]);
+      for (let step = 0; step < 2; step++) {
+        const next = new Set<string>();
+        for (const e of map.edges) {
+          if (edge.has(e.from) && !keep.has(e.to)) next.add(e.to);
+          if (edge.has(e.to) && !keep.has(e.from)) next.add(e.from);
+        }
+        for (const id of next) keep.add(id);
+        edge = next;
+      }
+    }
+
+    return {
+      ...map,
+      nodes: map.nodes.filter((n) => keep.has(n.id)),
+      edges: map.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
+    };
+  })();
 
   function pick(id: string) {
     setSelectedId(id);
@@ -377,6 +439,7 @@ export function Workspace({
 
   return (
     <div className="flex h-dvh overflow-hidden">
+      {sidebarOpen && (
       <MapSidebar
         map={map}
         selectedId={selectedId}
@@ -391,8 +454,48 @@ export function Workspace({
         onShare={() => setSharing(true)}
         readOnly={readOnly}
       />
+      )}
 
       <main className="relative min-w-0 flex-1">
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
+          {!sidebarOpen && (
+            <IconButton
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Show the sidebar"
+              title="Show the sidebar  ⌘\"
+              className="bg-raised/90 shadow-card backdrop-blur-sm"
+            >
+              <PanelLeft className="size-4" />
+            </IconButton>
+          )}
+
+          {/* How much of the app to show. Starts small on purpose. */}
+          <div className="flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
+            {[
+              { all: false, label: "Pages" },
+              { all: true, label: "Everything" },
+            ].map((choice) => (
+              <button
+                key={choice.label}
+                onClick={() => setShowAll(choice.all)}
+                className={cn(
+                  "h-7 rounded-sm px-2 text-[12.5px] transition-[background,color] duration-[20ms]",
+                  showAll === choice.all
+                    ? "bg-active font-medium text-primary"
+                    : "text-secondary hover:bg-hover",
+                )}
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!showAll && !selectedId && !query && (
+          <p className="pointer-events-none absolute top-[52px] left-3 z-10 text-[12.5px] text-tertiary">
+            Click a page to see what happens behind it.
+          </p>
+        )}
         {map.nodes.length === 0 ? (
           <div className="canvas-grid grid size-full place-items-center p-6">
             <div className="w-[min(420px,88vw)] rounded-xl bg-raised p-6 shadow-popover">
@@ -415,7 +518,7 @@ export function Workspace({
           <Canvas
             key={`${owner}/${repo}`}
             ref={canvasRef}
-            map={map}
+            map={shown}
             selectedId={selectedId}
             onSelect={setSelectedId}
             storageKey={shared?.layoutKey ?? layoutKey}

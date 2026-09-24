@@ -413,6 +413,24 @@ function linksTo(src: string): string[] {
   return out;
 }
 
+/**
+ * Addresses a page asks the app for behind the scenes — the fetch calls.
+ * This is the step between "I clicked the button" and "something happened",
+ * and nothing in the imports shows it.
+ */
+function callsTo(src: string): string[] {
+  const out: string[] = [];
+  const patterns = [
+    /\bfetch\s*\(\s*[`"'](\/[^`"'\s?]*)/g,
+    /\b(?:axios|http)\s*\.\s*\w+\s*\(\s*[`"'](\/[^`"'\s?]*)/g,
+    /\buseSWR\s*\(\s*[`"'](\/[^`"'\s?]*)/g,
+  ];
+  for (const re of patterns) {
+    for (let m; (m = re.exec(src)); ) out.push(m[1]);
+  }
+  return out;
+}
+
 /** "/Dashboard/Collections/" and "/dashboard/collections" are one address. */
 function sameAddress(route: string): string {
   const cleaned = route
@@ -588,8 +606,13 @@ function writeOverview(
  * forty boxes is worse than fifteen — the sidebar still lists everything and
  * we say plainly when the canvas is showing a subset.
  */
+/**
+ * How many of each to draw. Pages get the most room: they're what the map
+ * opens on and the part people recognise, so leaving half of them out is
+ * the one omission you'd actually notice.
+ */
 const CAPS: Record<NodeKind, number> = {
-  screen: 8,
+  screen: 14,
   door: 16,
   logic: 12,
   data: 12,
@@ -968,6 +991,24 @@ export async function analyzeRepo(
       if (edgeSet.has(key)) continue;
       edgeSet.add(key);
       edges.push({ from: page.id, to: target.id, kind: "opens" });
+    }
+
+    // And what the page asks the app for while you're on it.
+    const calls = new Set<string>();
+    for (const file of pageSources(page.file)) {
+      const src = files.get(file);
+      if (src) for (const address of callsTo(src)) calls.add(sameAddress(address));
+    }
+    for (const address of calls) {
+      for (const door of nodes) {
+        if (door.kind !== "door") continue;
+        const doorAddress = sameAddress(door.code.replace(/^\w+\s+/, ""));
+        if (doorAddress !== address) continue;
+        const key = `${page.id}->${door.id}`;
+        if (edgeSet.has(key)) continue;
+        edgeSet.add(key);
+        edges.push({ from: page.id, to: door.id, kind: "uses" });
+      }
     }
   }
 

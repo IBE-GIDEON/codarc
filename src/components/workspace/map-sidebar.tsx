@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronRight, FileText, HelpCircle, Share2 } from "lucide-react";
+import { ChevronRight, ChevronsLeft, FileText, HelpCircle, Share2 } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
 import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
@@ -10,6 +10,7 @@ import { SearchField } from "@/components/workspace/search-field";
 import { highlightParts } from "@/components/workspace/search";
 import { Wordmark } from "@/components/logo";
 import { Account } from "@/components/workspace/account";
+import { setSidebarOpen } from "@/components/workspace/sidebar-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
 
@@ -61,7 +62,7 @@ export function MapSidebar({
   });
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-sidebar">
+    <aside className="reveal-parent flex w-60 shrink-0 flex-col bg-sidebar">
       <div className="flex items-center px-2 pt-2.5 pb-1">
         <Link href="/" aria-label="Codarc home" className="notion-hover px-1 py-0.5">
           <Wordmark size="sm" />
@@ -77,6 +78,16 @@ export function MapSidebar({
             </IconButton>
           )}
           <ThemeToggle />
+          {/* Notion's move: the way out of the sidebar lives in the sidebar,
+              and only shows itself when you come near. */}
+          <IconButton
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Hide the sidebar"
+            title="Hide the sidebar  ⌘\"
+            className="reveal"
+          >
+            <ChevronsLeft className="size-4" />
+          </IconButton>
         </span>
       </div>
 

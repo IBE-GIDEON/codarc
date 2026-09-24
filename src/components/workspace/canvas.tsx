@@ -30,7 +30,11 @@ function edgePath(a: GraphNode, b: GraphNode, off: Offsets) {
   return `M${ax} ${ay} C ${ax + mid} ${ay}, ${leftB - mid} ${by}, ${leftB} ${by}`;
 }
 
-export type CanvasHandle = { focusNode: (id: string) => void };
+export type CanvasHandle = {
+  focusNode: (id: string) => void;
+  /** Re-frames whatever is on screen now — used when the view changes. */
+  fitAll: () => void;
+};
 
 export function Canvas({
   map,
@@ -236,6 +240,11 @@ export function Canvas({
   React.useImperativeHandle(
     ref,
     () => ({
+      fitAll() {
+        setSmooth(true);
+        fit();
+        window.setTimeout(() => setSmooth(false), 480);
+      },
       focusNode(id: string) {
         const host = hostRef.current;
         const n = nodeById.get(id);
@@ -260,7 +269,7 @@ export function Canvas({
         window.setTimeout(() => setSmooth(false), 480);
       },
     }),
-    [nodeById, offsets, view.k, view.x, view.y],
+    [fit, nodeById, offsets, view.k, view.x, view.y],
   );
 
   const neighbours = React.useMemo(() => {
