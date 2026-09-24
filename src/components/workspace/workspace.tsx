@@ -495,9 +495,9 @@ export function Workspace({
           </div>
         </div>
 
-        {!showAll && !selectedId && !query && (
+        {!selectedId && !query && (
           <p className="pointer-events-none absolute top-[52px] left-3 z-10 text-[12.5px] text-tertiary">
-            Click a page to see what happens behind it.
+            Point at a box to see what it touches. Click it to follow the whole path.
           </p>
         )}
         {map.nodes.length === 0 ? (

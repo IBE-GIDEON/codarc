@@ -70,6 +70,13 @@ export function Canvas({
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [view, setView] = React.useState({ x: 0, y: 0, k: 1 });
   const [ready, setReady] = React.useState(false);
+  /*
+   * A map of forty boxes with every line drawn is a ball of wire, and the
+   * wire is the part nobody can read. So the map is boxes in named bands,
+   * and the lines belong to one box at a time: point at a box to see what
+   * it touches, pick it to follow the whole thread.
+   */
+  const [hovered, setHovered] = React.useState<string | null>(null);
 
   // Hand-placed nodes are the user's work — keep them across re-scans.
   // Safe to read during init: this component only mounts after the map loads.
@@ -392,9 +399,14 @@ export function Canvas({
             const a = nodeById.get(e.from);
             const b = nodeById.get(e.to);
             if (!a || !b) return null;
+
             // Lit when it's part of the thread running through whatever is
             // selected, not only when it touches it.
             const active = onPath.has(e.from) && onPath.has(e.to);
+            const touchesHovered = hovered === e.from || hovered === e.to;
+            // Nothing selected and nothing under the pointer: no lines at all.
+            // The bands carry the structure; the wire is detail on demand.
+            if (!active && !touchesHovered) return null;
             // A link someone can click is drawn as a solid line with an
             // arrow. Everything else is the app reaching for something
             // behind the scenes, and stays a quiet dotted line.
@@ -405,13 +417,7 @@ export function Canvas({
                 d={edgePath(a, b, offsets)}
                 fill="none"
                 strokeLinecap="round"
-                stroke={
-                  active
-                    ? "var(--accent)"
-                    : opens
-                      ? "var(--text-tertiary)"
-                      : "var(--text-ghost)"
-                }
+                stroke={active ? "var(--accent)" : "var(--text-tertiary)"}
                 strokeWidth={active ? 2 : opens ? 1.5 : 1.25}
                 strokeDasharray={opens || active ? undefined : "1 5"}
                 markerEnd={opens ? `url(#${active ? "arrow-live" : "arrow-quiet"})` : undefined}
@@ -421,9 +427,7 @@ export function Canvas({
                  * full strength, so those sit right back until their page is
                  * picked — then the whole thread comes forward.
                  */
-                opacity={
-                  selectedId ? (active ? 1 : 0.12) : e.kind === "opens" ? 0.22 : 0.55
-                }
+                opacity={active ? 1 : 0.6}
                 style={{ transition: "opacity 100ms ease-out" }}
               />
             );
@@ -462,6 +466,11 @@ export function Canvas({
                 (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                 drag.current = { id: n.id, x: e.clientX, y: e.clientY, dx, dy };
               }}
+              // Lines appear on approach. Nothing is drawn until then.
+              onPointerEnter={() => setHovered(n.id)}
+              onPointerLeave={() => setHovered((h) => (h === n.id ? null : h))}
+              onFocus={() => setHovered(n.id)}
+              onBlur={() => setHovered((h) => (h === n.id ? null : h))}
               onPointerMove={onPointerMove}
               onPointerUp={(e) => {
                 e.stopPropagation();
