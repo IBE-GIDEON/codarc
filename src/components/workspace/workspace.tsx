@@ -14,9 +14,10 @@ import { PresenceStack, useLiveCursors } from "@/components/workspace/live-curso
 import type { Offsets } from "@/lib/share";
 import { rememberMap } from "@/lib/recent";
 import { setSidebarOpen, useSidebarOpen } from "@/components/workspace/sidebar-state";
+import { Overview } from "@/components/workspace/overview";
+import { groupIntoFeatures, type Feature } from "@/lib/features";
 import { Logo } from "@/components/logo";
 import { Button, IconButton } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
 
 type Result =
   | { key: string; phase: "error"; error: string; hint: string }
@@ -191,16 +192,20 @@ export function Workspace({
   // The request this render is waiting on. Anything stale is ignored, so a
   // fast retry can't land after a slow first attempt.
   const key = `${owner}/${repo}#${nonce}`;
-  // The whole architecture, top to bottom, is the point of the map — so it
-  // opens that way. "Just pages" strips it back for anyone who only wants
-  // the screens and the links between them.
-  const [showAll, setShowAll] = React.useState(true);
+  /*
+   * Three depths, in the order anyone asks about their own app:
+   *   nothing chosen  — what it's made of
+   *   a part chosen   — how that part works
+   *   a box chosen    — the piece itself, and its file
+   * Dumping the whole codebase on one canvas answers the third question to
+   * someone who hasn't asked the first.
+   */
+  const [inside, setInside] = React.useState<Feature | null>(null);
 
-  // Switching between "Pages" and "Everything" re-frames what's on screen,
-  // so the answer is never half off the edge.
+  // Stepping into or out of a part re-frames the canvas.
   React.useEffect(() => {
     canvasRef.current?.fitAll();
-  }, [showAll]);
+  }, [inside]);
 
   // ⌘\ (Ctrl+\ on Windows) hides and shows the sidebar, the way it does in
   // Notion. Ignored while someone is typing, so it can't eat a keystroke.
@@ -295,29 +300,23 @@ export function Workspace({
   const layoutKey = `codarc-layout:${owner}/${repo}`;
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null;
   const matches = matchNodes(map.nodes, query);
+  const features = groupIntoFeatures(map);
 
   /*
-   * What's on screen right now. Pages are always there — they're the part
-   * everyone recognises, and the place to start. Picking one brings in what
-   * it leads to and what it sets off behind the scenes, two steps deep, so
-   * the map answers one question at a time instead of all of them at once.
+   * What's on screen right now. Inside a part of the app, that part's own
+   * pieces — plus whatever they reach into elsewhere, so a thread is never
+   * cut off at the edge of its group.
    */
   const shown = (() => {
-    if (showAll || query) return map;
+    if (!inside || query) return map;
 
-    const keep = new Set(map.nodes.filter((n) => n.kind === "screen").map((n) => n.id));
-    if (selectedId) {
-      keep.add(selectedId);
-      let edge = new Set([selectedId]);
-      for (let step = 0; step < 2; step++) {
-        const next = new Set<string>();
-        for (const e of map.edges) {
-          if (edge.has(e.from) && !keep.has(e.to)) next.add(e.to);
-          if (edge.has(e.to) && !keep.has(e.from)) next.add(e.from);
-        }
-        for (const id of next) keep.add(id);
-        edge = next;
-      }
+    // This part's own pieces, plus whatever they touch directly — worked out
+    // before anything is added, so one step out doesn't turn into a flood.
+    const own = new Set(inside.nodeIds);
+    const keep = new Set(own);
+    for (const e of map.edges) {
+      if (own.has(e.from)) keep.add(e.to);
+      if (own.has(e.to)) keep.add(e.from);
     }
 
     const nodes = map.nodes.filter((n) => keep.has(n.id));
@@ -346,11 +345,27 @@ export function Workspace({
       id: "welcome",
       placement: "center",
       title: "This is your app, drawn out",
-      body: "Every box below is a real piece of the app you built. Give me a minute and I'll show you what you're looking at and what you can do with it.",
+      body: "Give me a minute and I'll show you what you're looking at and what you can do with it.",
       before: () => {
         setQuery("");
         setSelectedId(null);
+        setInside(null);
       },
+    },
+    {
+      id: "parts",
+      target: "parts",
+      placement: "right",
+      title: "What your app is made of",
+      body: "Every card is one part of the app you built — the areas you'd name yourself. Click one to go inside it. Nothing deeper is shown until you ask for it.",
+      before: () => setInside(null),
+    },
+    {
+      id: "inside",
+      placement: "center",
+      title: "Inside a part",
+      body: "This is one part, read from top to bottom: the pages people open, what that sets off, and the work behind it. The way back out is in the top left.",
+      before: () => setInside(features[0] ?? null),
     },
     {
       id: "colours",
@@ -473,29 +488,25 @@ export function Workspace({
             </IconButton>
           )}
 
-          {/* How much of the app to show. Starts small on purpose. */}
-          <div className="flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
-            {[
-              { all: true, label: "Everything" },
-              { all: false, label: "Just pages" },
-            ].map((choice) => (
+          {/* Where you are, and the way back out. */}
+          {inside && (
+            <div className="flex items-center gap-1 rounded-lg bg-raised/90 py-1 pr-2.5 pl-1 shadow-card backdrop-blur-sm">
               <button
-                key={choice.label}
-                onClick={() => setShowAll(choice.all)}
-                className={cn(
-                  "h-7 rounded-sm px-2 text-[12.5px] transition-[background,color] duration-[20ms]",
-                  showAll === choice.all
-                    ? "bg-active font-medium text-primary"
-                    : "text-secondary hover:bg-hover",
-                )}
+                onClick={() => {
+                  setInside(null);
+                  setSelectedId(null);
+                }}
+                className="notion-hover flex h-7 items-center gap-1.5 px-2 text-[12.5px] text-secondary hover:text-primary"
               >
-                {choice.label}
+                <ArrowLeft className="size-3.5" /> {map.repo}
               </button>
-            ))}
-          </div>
+              <span className="text-ghost">/</span>
+              <span className="text-[12.5px] font-medium text-primary">{inside.name}</span>
+            </div>
+          )}
         </div>
 
-        {!selectedId && !query && (
+        {inside && !selectedId && !query && (
           <p className="pointer-events-none absolute top-[52px] left-3 z-10 text-[12.5px] text-tertiary">
             Point at a box to see what it touches. Click it to follow the whole path.
           </p>
@@ -518,9 +529,19 @@ export function Workspace({
               </Link>
             </div>
           </div>
+        ) : !inside && !query ? (
+          /* Nothing chosen yet: what the app is made of, in a few parts. */
+          <Overview
+            map={map}
+            features={features}
+            onOpen={(feature) => {
+              setInside(feature);
+              setSelectedId(null);
+            }}
+          />
         ) : (
           <Canvas
-            key={`${owner}/${repo}`}
+            key={`${owner}/${repo}:${inside?.name ?? "search"}`}
             ref={canvasRef}
             map={shown}
             selectedId={selectedId}
