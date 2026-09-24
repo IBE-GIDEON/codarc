@@ -14,7 +14,8 @@ import { PresenceStack, useLiveCursors } from "@/components/workspace/live-curso
 import type { Offsets } from "@/lib/share";
 import { rememberMap } from "@/lib/recent";
 import { setSidebarOpen, useSidebarOpen } from "@/components/workspace/sidebar-state";
-import { Overview } from "@/components/workspace/overview";
+import { TreeCanvas } from "@/components/workspace/tree-canvas";
+import { buildTree } from "@/lib/tree";
 import { groupIntoFeatures, type Feature } from "@/lib/features";
 import { Logo } from "@/components/logo";
 import { Button, IconButton } from "@/components/ui/button";
@@ -301,6 +302,7 @@ export function Workspace({
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null;
   const matches = matchNodes(map.nodes, query);
   const features = groupIntoFeatures(map);
+  const tree = buildTree(map, features);
 
   /*
    * What's on screen right now. Inside a part of the app, that part's own
@@ -530,14 +532,19 @@ export function Workspace({
             </div>
           </div>
         ) : !inside && !query ? (
-          /* Nothing chosen yet: what the app is made of, in a few parts. */
-          <Overview
-            map={map}
-            features={features}
-            onOpen={(feature) => {
-              setInside(feature);
-              setSelectedId(null);
+          /* The whole app as one tree: root, parts, pages, what they use. */
+          <TreeCanvas
+            tree={tree}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onOpenFeature={(name) => {
+              const feature = features.find((f) => f.name === name);
+              if (feature) {
+                setInside(feature);
+                setSelectedId(null);
+              }
             }}
+            matches={matches}
           />
         ) : (
           <Canvas
