@@ -9,25 +9,27 @@ import { cn } from "@/lib/cn";
 
 type Offsets = Record<string, { dx: number; dy: number }>;
 
-/** A cubic that leaves the right edge and arrives at the left edge. */
+/**
+ * Lines run downward, from the bottom of one box to the top of the next.
+ * One direction for the whole map is what keeps forty boxes readable.
+ * Two boxes in the same band — one page linking to another — arc over the
+ * top instead, so a link never cuts through the boxes between them.
+ */
 function edgePath(a: GraphNode, b: GraphNode, off: Offsets) {
-  const leftA = a.x + (off[a.id]?.dx ?? 0);
-  const leftB = b.x + (off[b.id]?.dx ?? 0);
-  const ay = a.y + (off[a.id]?.dy ?? 0) + NODE_H / 2;
-  const by = b.y + (off[b.id]?.dy ?? 0) + NODE_H / 2;
+  const ax = a.x + (off[a.id]?.dx ?? 0) + NODE_W / 2;
+  const bx = b.x + (off[b.id]?.dx ?? 0) + NODE_W / 2;
+  const aTop = a.y + (off[a.id]?.dy ?? 0);
+  const bTop = b.y + (off[b.id]?.dy ?? 0);
 
-  // One page leading to another sits in the same column, so a straight run
-  // would cut through the boxes between them. Those swing out to the left,
-  // the way a subway map carries a line past its stops.
-  if (Math.abs(leftB - leftA) < NODE_W) {
-    const bow = 34 + Math.min(70, Math.abs(by - ay) / 4);
-    const x = Math.min(leftA, leftB) - bow;
-    return `M${leftA} ${ay} C ${x} ${ay}, ${x} ${by}, ${leftB} ${by}`;
+  const sameBand = Math.abs(bTop - aTop) < NODE_H;
+  if (sameBand) {
+    const bow = 26 + Math.min(60, Math.abs(bx - ax) / 6);
+    return `M${ax} ${aTop} C ${ax} ${aTop - bow}, ${bx} ${bTop - bow}, ${bx} ${bTop}`;
   }
 
-  const ax = leftA + NODE_W;
-  const mid = Math.max(28, (leftB - ax) / 2);
-  return `M${ax} ${ay} C ${ax + mid} ${ay}, ${leftB - mid} ${by}, ${leftB} ${by}`;
+  const aBottom = aTop + NODE_H;
+  const reach = Math.max(22, (bTop - aBottom) / 2);
+  return `M${ax} ${aBottom} C ${ax} ${aBottom + reach}, ${bx} ${bTop - reach}, ${bx} ${bTop}`;
 }
 
 export type CanvasHandle = {
@@ -272,14 +274,44 @@ export function Canvas({
     [fit, nodeById, offsets, view.k, view.x, view.y],
   );
 
-  const neighbours = React.useMemo(() => {
+  /**
+   * The whole path through the selected box: everything it leads to, all the
+   * way down, and everything that reaches it, all the way up. Following one
+   * thread from a page to where its information lands is the question this
+   * map exists to answer.
+   */
+  const onPath = React.useMemo(() => {
     if (!selectedId) return new Set<string>();
-    const s = new Set<string>();
+    const path = new Set<string>([selectedId]);
+
+    // Downward and upward through the bands, as far as it goes.
+    const walk = (from: string, forward: boolean) => {
+      let edge = [from];
+      while (edge.length) {
+        const next: string[] = [];
+        for (const e of map.edges) {
+          // Page-to-page links are followed one step only. Chase them all
+          // the way and every page in the app lights up, which says nothing.
+          if (e.kind === "opens") continue;
+          const here = forward ? e.from : e.to;
+          const there = forward ? e.to : e.from;
+          if (!edge.includes(here) || path.has(there)) continue;
+          path.add(there);
+          next.push(there);
+        }
+        edge = next;
+      }
+    };
+    walk(selectedId, true);
+    walk(selectedId, false);
+
+    // The pages either side of this one: where you can go, and how you got here.
     for (const e of map.edges) {
-      if (e.from === selectedId) s.add(e.to);
-      if (e.to === selectedId) s.add(e.from);
+      if (e.kind !== "opens") continue;
+      if (e.from === selectedId) path.add(e.to);
+      if (e.to === selectedId) path.add(e.from);
     }
-    return s;
+    return path;
   }, [selectedId, map.edges]);
 
   return (
@@ -310,6 +342,26 @@ export function Canvas({
             : undefined,
         }}
       >
+        {/* The bands, named in plain words. They're the first thing to read:
+            how far each row is from the person using the app. */}
+        {map.layers?.map((band) => (
+          <div
+            key={band.kind}
+            className="pointer-events-none absolute rounded-xl"
+            style={{
+              left: band.x,
+              top: band.y,
+              width: band.w,
+              height: band.h,
+              background: "rgb(var(--ink) / 0.022)",
+            }}
+          >
+            <span className="absolute top-2.5 left-4 text-[12.5px] text-tertiary">
+              {band.label}
+            </span>
+          </div>
+        ))}
+
         <svg
           className="pointer-events-none absolute overflow-visible"
           style={{ left: 0, top: 0, width: 1, height: 1 }}
@@ -340,7 +392,9 @@ export function Canvas({
             const a = nodeById.get(e.from);
             const b = nodeById.get(e.to);
             if (!a || !b) return null;
-            const active = selectedId === e.from || selectedId === e.to;
+            // Lit when it's part of the thread running through whatever is
+            // selected, not only when it touches it.
+            const active = onPath.has(e.from) && onPath.has(e.to);
             // A link someone can click is drawn as a solid line with an
             // arrow. Everything else is the app reaching for something
             // behind the scenes, and stays a quiet dotted line.
@@ -361,9 +415,15 @@ export function Canvas({
                 strokeWidth={active ? 2 : opens ? 1.5 : 1.25}
                 strokeDasharray={opens || active ? undefined : "1 5"}
                 markerEnd={opens ? `url(#${active ? "arrow-live" : "arrow-quiet"})` : undefined}
-                // With something selected, the rest of the map steps back so
-                // one path can be followed without losing it in the others.
-                opacity={selectedId && !active ? 0.25 : 1}
+                /*
+                 * Quiet by default, loud when asked. Fourteen pages linking
+                 * to each other is a hedge of lines if every one is drawn at
+                 * full strength, so those sit right back until their page is
+                 * picked — then the whole thread comes forward.
+                 */
+                opacity={
+                  selectedId ? (active ? 1 : 0.12) : e.kind === "opens" ? 0.22 : 0.55
+                }
                 style={{ transition: "opacity 100ms ease-out" }}
               />
             );
@@ -379,7 +439,7 @@ export function Canvas({
           // looking for something, that's the only question on your mind.
           const dimmed = matches
             ? !hit
-            : Boolean(selectedId) && !selected && !neighbours.has(n.id);
+            : Boolean(selectedId) && !selected && !onPath.has(n.id);
           // Addresses mean something to everyone; file names mean nothing to
           // the people Codarc is for.
           const second =

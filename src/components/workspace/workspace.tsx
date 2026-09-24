@@ -191,10 +191,10 @@ export function Workspace({
   // The request this render is waiting on. Anything stale is ignored, so a
   // fast retry can't land after a slow first attempt.
   const key = `${owner}/${repo}#${nonce}`;
-  // Everything at once is a wall of boxes. The map opens on the pages people
-  // can actually visit, and the machinery behind a page appears when that
-  // page is picked. "Everything" is there for whoever wants the whole thing.
-  const [showAll, setShowAll] = React.useState(false);
+  // The whole architecture, top to bottom, is the point of the map — so it
+  // opens that way. "Just pages" strips it back for anyone who only wants
+  // the screens and the links between them.
+  const [showAll, setShowAll] = React.useState(true);
 
   // Switching between "Pages" and "Everything" re-frames what's on screen,
   // so the answer is never half off the edge.
@@ -320,10 +320,14 @@ export function Workspace({
       }
     }
 
+    const nodes = map.nodes.filter((n) => keep.has(n.id));
+    const kinds = new Set(nodes.map((n) => n.kind));
     return {
       ...map,
-      nodes: map.nodes.filter((n) => keep.has(n.id)),
+      nodes,
       edges: map.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
+      // No empty bands: a label with nothing under it is a question mark.
+      layers: map.layers?.filter((band) => kinds.has(band.kind)) ?? [],
     };
   })();
 
@@ -472,8 +476,8 @@ export function Workspace({
           {/* How much of the app to show. Starts small on purpose. */}
           <div className="flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
             {[
-              { all: false, label: "Pages" },
               { all: true, label: "Everything" },
+              { all: false, label: "Just pages" },
             ].map((choice) => (
               <button
                 key={choice.label}

@@ -1,11 +1,17 @@
 import {
-  COL_GAP,
+  BAND_BOTTOM,
+  BAND_GAP,
+  BAND_TOP,
+  GAP_X,
+  GAP_Y,
   KIND_ORDER,
+  LAYER_LABEL,
   NODE_H,
   NODE_W,
-  ROW_GAP,
+  PER_ROW,
   type GraphEdge,
   type GraphNode,
+  type Layer,
   type NodeKind,
   type RepoMap,
 } from "@/lib/graph";
@@ -618,7 +624,13 @@ const CAPS: Record<NodeKind, number> = {
   data: 12,
 };
 
-function layout(nodes: GraphNode[], edges: GraphEdge[]) {
+/**
+ * Lays the map out in bands, read top to bottom: the pages someone opens,
+ * what that sets off, the work behind it, and where things end up. Lines
+ * only ever run downward, which is what keeps a map with forty boxes
+ * readable — there is one direction, and it matches how people read.
+ */
+function layout(nodes: GraphNode[], edges: GraphEdge[]): Layer[] {
   const byKind = new Map<NodeKind, GraphNode[]>();
   for (const k of KIND_ORDER) byKind.set(k, []);
   for (const n of nodes) byKind.get(n.kind)!.push(n);
@@ -630,13 +642,14 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
     incoming.set(e.to, list);
   }
 
-  const rowOf = new Map<string, number>();
-  const columns = KIND_ORDER.filter((k) => byKind.get(k)!.length);
+  const bands = KIND_ORDER.filter((k) => byKind.get(k)!.length);
+  const placed = new Map<string, number>();
 
-  columns.forEach((kind, col) => {
+  // Order each band before placing it, so lines to the band above stay short.
+  bands.forEach((kind, depth) => {
     const list = byKind.get(kind)!;
-    if (col === 0) {
-      // The home page sits at the top, because that's where people start.
+    if (depth === 0) {
+      // The home page comes first, because that's where people start.
       const home = (n: GraphNode) => (n.kind === "screen" && n.code === "/" ? 0 : 1);
       list.sort(
         (a, b) =>
@@ -645,12 +658,11 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
           a.title.localeCompare(b.title),
       );
     } else {
-      // Barycentre: sit each node next to whatever points at it. Feature wins
-      // the tie, so a repo's Reddit pieces end up on the same rows rather than
-      // scattered down three columns.
+      // Barycentre: sit each box under whatever points at it. Feature breaks
+      // the tie, so a repo's Reddit pieces line up instead of scattering.
       const weight = (n: GraphNode) => {
         const parents = (incoming.get(n.id) ?? [])
-          .map((id) => rowOf.get(id))
+          .map((id) => placed.get(id))
           .filter((v): v is number => v !== undefined);
         return parents.length
           ? parents.reduce((a, b) => a + b, 0) / parents.length
@@ -663,42 +675,47 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
           a.title.localeCompare(b.title),
       );
     }
-    list.forEach((n, row) => rowOf.set(n.id, row));
+    list.forEach((n, i) => placed.set(n.id, i % PER_ROW));
   });
 
-  // A repo with twenty routes would otherwise be one very tall, very thin
-  // strip that only fits on screen at 40%. Wrap each band into sub-columns so
-  // the map stays close to landscape and stays readable.
-  const MAX_ROWS = 9;
-  const SUB_GAP = 28;
-
-  const bands = columns.map((kind) => {
-    const list = byKind.get(kind)!;
-    const chunks: GraphNode[][] = [];
-    for (let i = 0; i < list.length; i += MAX_ROWS) {
-      chunks.push(list.slice(i, i + MAX_ROWS));
-    }
-    return chunks.length ? chunks : [[]];
-  });
-
-  const tallest = Math.max(
-    ...bands.flat().map((c) => c.length),
+  // Every band is as wide as the busiest one, so the bands stack into a
+  // single shape rather than a ragged staircase.
+  const widest = Math.max(
+    ...bands.map((k) => Math.min(byKind.get(k)!.length, PER_ROW)),
     1,
   );
+  const fullWidth = widest * NODE_W + (widest - 1) * GAP_X;
 
-  let cursorX = 0;
-  bands.forEach((chunks, bandIndex) => {
-    if (bandIndex > 0) cursorX += COL_GAP;
-    chunks.forEach((chunk, chunkIndex) => {
-      if (chunkIndex > 0) cursorX += SUB_GAP;
-      const offset = ((tallest - chunk.length) * (NODE_H + ROW_GAP)) / 2;
-      chunk.forEach((n, row) => {
-        n.x = cursorX;
-        n.y = offset + row * (NODE_H + ROW_GAP);
-      });
-      cursorX += NODE_W;
+  const layers: Layer[] = [];
+  let y = 0;
+
+  for (const kind of bands) {
+    const list = byKind.get(kind)!;
+    const rows = Math.ceil(list.length / PER_ROW);
+
+    list.forEach((n, i) => {
+      const row = Math.floor(i / PER_ROW);
+      const inRow = list.slice(row * PER_ROW, (row + 1) * PER_ROW).length;
+      // Short rows sit centred under the full width, not jammed to the left.
+      const rowWidth = inRow * NODE_W + (inRow - 1) * GAP_X;
+      const startX = (fullWidth - rowWidth) / 2;
+      n.x = startX + (i % PER_ROW) * (NODE_W + GAP_X);
+      n.y = y + BAND_TOP + row * (NODE_H + GAP_Y);
     });
-  });
+
+    const height = BAND_TOP + rows * (NODE_H + GAP_Y) - GAP_Y + BAND_BOTTOM;
+    layers.push({
+      kind,
+      label: LAYER_LABEL[kind],
+      x: -GAP_X,
+      y,
+      w: fullWidth + GAP_X * 2,
+      h: height,
+    });
+    y += height + BAND_GAP;
+  }
+
+  return layers;
 }
 
 /* ------------------------------------------------------------------- main */
@@ -1048,7 +1065,7 @@ export async function analyzeRepo(
     trimmed.push(...opens, ...uses.slice(0, MAX_OUT));
   }
 
-  layout(nodes, trimmed);
+  const layers = layout(nodes, trimmed);
 
   return {
     owner,
@@ -1061,6 +1078,7 @@ export async function analyzeRepo(
     stacks: detectStacks(files, paths),
     nodes,
     edges: trimmed,
+    layers,
     stats: {
       filesScanned: files.size,
       filesTotal: entries.length,

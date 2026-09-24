@@ -85,6 +85,8 @@ export type RepoMap = {
   stacks: string[];
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** The bands behind the boxes, in map coordinates. */
+  layers: Layer[];
   stats: {
     filesScanned: number;
     filesTotal: number;
@@ -98,5 +100,36 @@ export const NODE_W = 208;
 export const NODE_H = 52;
 export const COL_GAP = 148;
 export const ROW_GAP = 18;
+
+/**
+ * The map is read top to bottom, each band one step further from the person
+ * using the app. The names are what someone sees first, so they're written
+ * for someone who has never opened a file.
+ */
+export const LAYER_LABEL: Record<NodeKind, string> = {
+  screen: "Pages people open",
+  door: "What that sets off",
+  logic: "The work behind it",
+  data: "Where things are kept",
+};
+
+/** A labelled band on the canvas, worked out when the map is laid out. */
+export type Layer = {
+  kind: NodeKind;
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+/** Spacing for the top-to-bottom layout. */
+export const GAP_X = 24;
+export const GAP_Y = 18;
+export const BAND_TOP = 38;
+export const BAND_BOTTOM = 18;
+export const BAND_GAP = 44;
+/** Boxes per row before a band wraps onto another line. */
+export const PER_ROW = 5;
 
 export const KIND_ORDER: NodeKind[] = ["screen", "door", "logic", "data"];
