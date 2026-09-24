@@ -42,6 +42,12 @@ export type GraphNode = {
   summary: string;
   file: string;
   line: number;
+  /**
+   * Other files doing the same job, folded into this one box. Three files
+   * that all mean "where your information is kept" are one thing to the
+   * person looking, not three.
+   */
+  alsoIn?: string[];
   /** Extra files this node's change would likely touch. */
   related: string[];
   /**
@@ -54,7 +60,15 @@ export type GraphNode = {
   y: number;
 };
 
-export type GraphEdge = { from: string; to: string };
+export type GraphEdge = {
+  from: string;
+  to: string;
+  /**
+   * "opens" is a link someone can click: this page leads to that one.
+   * "uses" is the app reaching for something behind the scenes.
+   */
+  kind?: "uses" | "opens";
+};
 
 export type RepoMap = {
   owner: string;

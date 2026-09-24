@@ -13,8 +13,8 @@ import {
   dataSummary,
   dataTitle,
   featureOf,
-  logicSummary,
-  logicTitleFromPath,
+  behindTheScenes,
+  usedBy,
   plural,
   purposeTitle,
   routeSummary,
@@ -354,7 +354,9 @@ function tsRoutes(path: string, src: string): Found[] {
 }
 
 function tsScreens(path: string): Found[] {
-  if (/(^|\/)app\/.*\/page\.(tsx|jsx|js|ts)$/i.test(path)) {
+  // `app/page.tsx` is the home page — the one page everybody starts on.
+  // Requiring a folder in between quietly left it off every map.
+  if (/(^|\/)app\/(.*\/)?page\.(tsx|jsx|js|ts)$/i.test(path)) {
     const url = appRouterPath(path, /\/?page\.(tsx|jsx|js|ts)$/i);
     return [
       {
@@ -385,6 +387,40 @@ function tsScreens(path: string): Found[] {
     ];
   }
   return [];
+}
+
+/**
+ * Addresses a page sends people to: links, buttons, redirects.
+ *
+ * This is the part of a map a person actually recognises — "the menu takes me
+ * here, and from there to there". Nothing else in the code shows it, because
+ * a link is just a string.
+ */
+function linksTo(src: string): string[] {
+  const out: string[] = [];
+  const patterns = [
+    /\bhref\s*=\s*["'`](\/[^"'`\s?#]*)/g, // <Link href="/pricing">
+    /\bhref\s*=\s*\{\s*["'`](\/[^"'`\s?#]*)/g, // href={"/pricing"}
+    /\b(?:push|replace|redirect|navigate)\s*\(\s*["'`](\/[^"'`\s?#]*)/g, // router.push("/x")
+    // Menus are often written as lists: ["Pricing", "/pricing"]. Any quoted
+    // address counts, because every one is checked against the real pages
+    // before it becomes a line on the map.
+    /["'`](\/[a-z0-9\-/:[\]{}]*)["'`]/gi,
+  ];
+  for (const re of patterns) {
+    for (let m; (m = re.exec(src)); ) out.push(m[1]);
+  }
+  return out;
+}
+
+/** "/Dashboard/Collections/" and "/dashboard/collections" are one address. */
+function sameAddress(route: string): string {
+  const cleaned = route
+    .toLowerCase()
+    .replace(/\/+$/, "")
+    .replace(/\[(.+?)\]/g, ":$1")
+    .replace(/\{(.+?)\}/g, ":$1");
+  return cleaned || "/";
 }
 
 function tsShapes(path: string, src: string): Found[] {
@@ -442,12 +478,15 @@ function logicNode(path: string, src: string): Found | null {
   if (!hasClass) return null;
 
   const base = path.split("/").pop() ?? path;
+  // Named for the job it does, not for the file it lives in. The "used by N
+  // parts" sentence is added later, once the whole graph is known.
+  const { title, summary } = behindTheScenes(path, src);
   return {
     id: `logic:${path}`,
     kind: "logic",
-    title: logicTitleFromPath(path),
+    title,
     code: base,
-    summary: "",
+    summary,
     file: path,
     line: 1,
   };
@@ -574,8 +613,11 @@ function layout(nodes: GraphNode[], edges: GraphEdge[]) {
   columns.forEach((kind, col) => {
     const list = byKind.get(kind)!;
     if (col === 0) {
+      // The home page sits at the top, because that's where people start.
+      const home = (n: GraphNode) => (n.kind === "screen" && n.code === "/" ? 0 : 1);
       list.sort(
         (a, b) =>
+          home(a) - home(b) ||
           (a.feature ?? "~").localeCompare(b.feature ?? "~") ||
           a.title.localeCompare(b.title),
       );
@@ -701,36 +743,81 @@ export async function analyzeRepo(
   };
   for (const c of candidates) foundCounts[c.kind]++;
 
+  /**
+   * How much a page matters to someone using the app. Nothing else imports
+   * the home page, so counting importers buries the very page everyone
+   * starts on. Shallow addresses win instead, and "/" always survives.
+   */
+  const pageRank = (f: Found) => {
+    const address = f.code || "/";
+    if (address === "/") return 1000;
+    const depth = address.split("/").filter(Boolean).length;
+    const takesAnId = address.includes(":");
+    return 100 - depth * 10 - (takesAnId ? 15 : 0);
+  };
+
   const kept: Found[] = [];
   for (const kind of KIND_ORDER) {
     const list = candidates
       .filter((f) => f.kind === kind)
-      .sort(
-        (a, b) =>
-          (referenceCount.get(b.file) ?? 0) - (referenceCount.get(a.file) ?? 0) ||
-          a.file.localeCompare(b.file),
+      .sort((a, b) =>
+        kind === "screen"
+          ? pageRank(b) - pageRank(a) || a.file.localeCompare(b.file)
+          : (referenceCount.get(b.file) ?? 0) - (referenceCount.get(a.file) ?? 0) ||
+            a.file.localeCompare(b.file),
       )
       .slice(0, CAPS[kind]);
     kept.push(...list);
   }
 
-  const nodes: GraphNode[] = kept.map((f) => ({
+  const drawn: GraphNode[] = kept.map((f) => ({
     ...f,
     feature: featureOf(f.file, f.code) ?? undefined,
-    summary:
-      f.kind === "logic"
-        ? logicSummary(f.code, referenceCount.get(f.file) ?? 0)
-        : f.summary,
     related: [...(importGraph.get(f.file) ?? [])].slice(0, 4),
     dependents: [],
     x: 0,
     y: 0,
   }));
 
+  /*
+   * Behind-the-scenes files that do the same job are one thing to the person
+   * looking at the map. Three boxes for the same database, told apart by the
+   * file names underneath, is the map showing its workings instead of doing
+   * its job. Fold them into one box that knows all its files.
+   */
+  const nodes: GraphNode[] = [];
+  const sameJob = new Map<string, GraphNode>();
+  for (const node of drawn) {
+    const twin = node.kind === "logic" ? sameJob.get(node.title) : undefined;
+    if (!twin) {
+      if (node.kind === "logic") sameJob.set(node.title, node);
+      nodes.push(node);
+      continue;
+    }
 
-  // Three boxes all called "Shared logic" reads as broken software. Where a
-  // title repeats, find the word that actually distinguishes them — a path
-  // segment one has and the others don't — and put that in the name.
+    // The file the rest of the app leans on most is the one to open.
+    const busier = (referenceCount.get(node.file) ?? 0) > (referenceCount.get(twin.file) ?? 0);
+    twin.alsoIn = [...(twin.alsoIn ?? []), busier ? twin.file : node.file];
+    if (busier) {
+      twin.file = node.file;
+      twin.line = node.line;
+      twin.code = node.code;
+    }
+    twin.related = [...new Set([...twin.related, ...node.related])].slice(0, 4);
+  }
+
+  for (const n of nodes) {
+    if (n.kind !== "logic") continue;
+    const callers = [n.file, ...(n.alsoIn ?? [])].reduce(
+      (sum, file) => sum + (referenceCount.get(file) ?? 0),
+      0,
+    );
+    n.summary = `${n.summary} ${usedBy(callers)}`.trim();
+  }
+
+  // Two boxes with one name still reads as broken. Where a title repeats
+  // across different kinds, find the word that actually distinguishes them —
+  // a path segment one has and the others don't — and put that in the name.
   const byTitle = new Map<string, GraphNode[]>();
   for (const n of nodes) {
     const list = byTitle.get(n.title) ?? [];
@@ -780,9 +867,13 @@ export async function analyzeRepo(
   const rank = new Map(KIND_ORDER.map((k, i) => [k, i]));
   const nodesByFile = new Map<string, GraphNode[]>();
   for (const n of nodes) {
-    const list = nodesByFile.get(n.file) ?? [];
-    list.push(n);
-    nodesByFile.set(n.file, list);
+    // A merged box answers for every file folded into it, so lines drawn to
+    // any of them arrive at the one box.
+    for (const file of [n.file, ...(n.alsoIn ?? [])]) {
+      const list = nodesByFile.get(file) ?? [];
+      list.push(n);
+      nodesByFile.set(file, list);
+    }
   }
 
   const edgeSet = new Set<string>();
@@ -800,9 +891,83 @@ export async function analyzeRepo(
           const key = `${from.id}->${to.id}`;
           if (edgeSet.has(key)) continue;
           edgeSet.add(key);
-          edges.push({ from: from.id, to: to.id });
+          edges.push({ from: from.id, to: to.id, kind: "uses" });
         }
       }
+    }
+  }
+
+  /*
+   * Now the part people recognise: which page leads to which. A page's links
+   * live in its own file and in the pieces it pulls in, so both are read.
+   */
+  const screenByAddress = new Map<string, GraphNode>();
+  for (const n of nodes) {
+    if (n.kind === "screen") screenByAddress.set(sameAddress(n.code), n);
+  }
+
+  /**
+   * A link built at runtime — `/c/${id}` — leaves only its fixed start
+   * behind. If exactly one page lives under that start, it's that page.
+   */
+  const startsPage = (address: string): GraphNode | undefined => {
+    const prefix = sameAddress(address);
+    if (prefix === "/") return undefined;
+    const matches = [...screenByAddress].filter(([a]) => a.startsWith(`${prefix}/:`));
+    return matches.length === 1 ? matches[0][1] : undefined;
+  };
+
+  /** A page, the pieces it pulls in, and the layouts wrapped around it. */
+  const pageSources = (file: string): string[] => {
+    const seen = new Set<string>([file]);
+    // Two steps out: a page pulls in a header, the header holds the menu.
+    let edge = [file];
+    for (let depth = 0; depth < 2; depth++) {
+      const next: string[] = [];
+      for (const from of edge) {
+        for (const to of importGraph.get(from) ?? []) {
+          if (seen.has(to)) continue;
+          seen.add(to);
+          next.push(to);
+        }
+      }
+      edge = next;
+    }
+
+    // Layouts wrap pages without being imported by them, and that's where
+    // the menu usually lives.
+    const parts = file.split("/").slice(0, -1);
+    for (let i = parts.length; i > 0; i--) {
+      for (const ext of ["tsx", "jsx", "js", "ts"]) {
+        const layout = `${parts.slice(0, i).join("/")}/layout.${ext}`;
+        if (!files.has(layout) || seen.has(layout)) continue;
+        seen.add(layout);
+        for (const to of importGraph.get(layout) ?? []) seen.add(to);
+      }
+    }
+    return [...seen];
+  };
+
+  const MAX_LINKS = 6;
+  for (const page of nodes) {
+    if (page.kind !== "screen") continue;
+
+    const found: string[] = [];
+    for (const file of pageSources(page.file)) {
+      const src = files.get(file);
+      if (src) found.push(...linksTo(src));
+    }
+
+    const seen = new Set<string>();
+    for (const address of found) {
+      const target = screenByAddress.get(sameAddress(address)) ?? startsPage(address);
+      if (!target || target.id === page.id || seen.has(target.id)) continue;
+      seen.add(target.id);
+      if (seen.size > MAX_LINKS) break;
+      const key = `${page.id}->${target.id}`;
+      if (edgeSet.has(key)) continue;
+      edgeSet.add(key);
+      edges.push({ from: page.id, to: target.id, kind: "opens" });
     }
   }
 
@@ -830,12 +995,16 @@ export async function analyzeRepo(
   const trimmed: GraphEdge[] = [];
   for (const [, list] of outgoing) {
     const byId = new Map(nodes.map((n) => [n.id, n]));
-    list.sort(
+    // Where a page leads is never noise — that's the part people follow.
+    // Only the behind-the-scenes lines get thinned out.
+    const opens = list.filter((e) => e.kind === "opens");
+    const uses = list.filter((e) => e.kind !== "opens");
+    uses.sort(
       (a, b) =>
         (referenceCount.get(byId.get(b.to)?.file ?? "") ?? 0) -
         (referenceCount.get(byId.get(a.to)?.file ?? "") ?? 0),
     );
-    trimmed.push(...list.slice(0, MAX_OUT));
+    trimmed.push(...opens, ...uses.slice(0, MAX_OUT));
   }
 
   layout(nodes, trimmed);

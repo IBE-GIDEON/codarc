@@ -45,6 +45,44 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * The things this box connects to, by name. Click one and the map moves to
+ * it, so a person can walk the path a step at a time instead of reading
+ * lines across a picture.
+ */
+function Connections({
+  label,
+  nodes,
+  onSelect,
+}: {
+  label: string;
+  nodes: GraphNode[];
+  onSelect: (id: string) => void;
+}) {
+  if (!nodes.length) return null;
+  return (
+    <div className="mt-4">
+      <Label>{label}</Label>
+      <div className="space-y-px">
+        {nodes.map((n) => (
+          <button
+            key={n.id}
+            onClick={() => onSelect(n.id)}
+            className="notion-hover -mx-1.5 flex w-[calc(100%+12px)] items-center gap-2 px-1.5 py-1 text-left"
+          >
+            <span
+              className="h-3 w-[3px] shrink-0 rounded-full"
+              style={{ background: KIND_COLOR[n.kind] }}
+            />
+            <span className="truncate text-[12.5px] text-secondary">{n.title}</span>
+            <ArrowRight className="reveal ml-auto size-3 shrink-0 text-ghost" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const WAITING = [
   "Reading the file this came from",
   "Working out the smallest change",
@@ -128,6 +166,26 @@ export function Inspector({
       window.removeEventListener("focus", onFocus);
     };
   }, []);
+
+  // Everything this box touches, by name — never by file path. "Where this
+  // can take you" is the line a person follows; the rest is context.
+  const { leadsTo, comesFrom, uses } = React.useMemo(() => {
+    const byId = new Map(map.nodes.map((n) => [n.id, n]));
+    const pick = (test: (e: (typeof map.edges)[number]) => boolean, take: "from" | "to") => {
+      const out: GraphNode[] = [];
+      for (const e of map.edges) {
+        if (!test(e)) continue;
+        const other = byId.get(take === "to" ? e.to : e.from);
+        if (other && other.id !== node.id && !out.includes(other)) out.push(other);
+      }
+      return out.slice(0, 6);
+    };
+    return {
+      leadsTo: pick((e) => e.from === node.id && e.kind === "opens", "to"),
+      comesFrom: pick((e) => e.to === node.id && e.kind === "opens", "from"),
+      uses: pick((e) => e.from === node.id && e.kind !== "opens", "to"),
+    };
+  }, [map, node.id]);
 
   const connected = caps.connected;
 
@@ -261,20 +319,16 @@ export function Inspector({
           <ImpactPanel map={map} node={node} onSelect={onSelect} />
         )}
 
-        {node.related.length > 0 && phase.at === "idle" && (
-          <div className="mt-4">
-            <Label>What it reaches into</Label>
-            <div className="space-y-px">
-              {node.related.map((r) => (
-                <div
-                  key={r}
-                  className="notion-hover -mx-1.5 truncate px-1.5 py-1 font-mono text-[11.5px] text-tertiary"
-                >
-                  {r}
-                </div>
-              ))}
-            </div>
-          </div>
+        {phase.at === "idle" && (
+          <>
+            <Connections
+              label="Where this can take you"
+              nodes={leadsTo}
+              onSelect={onSelect}
+            />
+            <Connections label="Gets here from" nodes={comesFrom} onSelect={onSelect} />
+            <Connections label="What it uses" nodes={uses} onSelect={onSelect} />
+          </>
         )}
 
         {!readOnly && (

@@ -11,12 +11,23 @@ type Offsets = Record<string, { dx: number; dy: number }>;
 
 /** A cubic that leaves the right edge and arrives at the left edge. */
 function edgePath(a: GraphNode, b: GraphNode, off: Offsets) {
-  const ax = a.x + (off[a.id]?.dx ?? 0) + NODE_W;
+  const leftA = a.x + (off[a.id]?.dx ?? 0);
+  const leftB = b.x + (off[b.id]?.dx ?? 0);
   const ay = a.y + (off[a.id]?.dy ?? 0) + NODE_H / 2;
-  const bx = b.x + (off[b.id]?.dx ?? 0);
   const by = b.y + (off[b.id]?.dy ?? 0) + NODE_H / 2;
-  const mid = Math.max(28, (bx - ax) / 2);
-  return `M${ax} ${ay} C ${ax + mid} ${ay}, ${bx - mid} ${by}, ${bx} ${by}`;
+
+  // One page leading to another sits in the same column, so a straight run
+  // would cut through the boxes between them. Those swing out to the left,
+  // the way a subway map carries a line past its stops.
+  if (Math.abs(leftB - leftA) < NODE_W) {
+    const bow = 34 + Math.min(70, Math.abs(by - ay) / 4);
+    const x = Math.min(leftA, leftB) - bow;
+    return `M${leftA} ${ay} C ${x} ${ay}, ${x} ${by}, ${leftB} ${by}`;
+  }
+
+  const ax = leftA + NODE_W;
+  const mid = Math.max(28, (leftB - ax) / 2);
+  return `M${ax} ${ay} C ${ax + mid} ${ay}, ${leftB - mid} ${by}, ${leftB} ${by}`;
 }
 
 export type CanvasHandle = { focusNode: (id: string) => void };
@@ -295,21 +306,56 @@ export function Canvas({
           style={{ left: 0, top: 0, width: 1, height: 1 }}
           aria-hidden
         >
+          <defs>
+            {/* One arrowhead per colour: a line that means "goes to" should
+                say which way it goes. */}
+            {[
+              ["arrow-quiet", "var(--text-tertiary)"],
+              ["arrow-live", "var(--accent)"],
+            ].map(([id, colour]) => (
+              <marker
+                key={id}
+                id={id}
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M0 1 L7 4 L0 7 z" fill={colour} />
+              </marker>
+            ))}
+          </defs>
           {map.edges.map((e) => {
             const a = nodeById.get(e.from);
             const b = nodeById.get(e.to);
             if (!a || !b) return null;
-            const active =
-              selectedId === e.from || selectedId === e.to;
+            const active = selectedId === e.from || selectedId === e.to;
+            // A link someone can click is drawn as a solid line with an
+            // arrow. Everything else is the app reaching for something
+            // behind the scenes, and stays a quiet dotted line.
+            const opens = e.kind === "opens";
             return (
               <path
                 key={`${e.from}->${e.to}`}
                 d={edgePath(a, b, offsets)}
                 fill="none"
                 strokeLinecap="round"
-                stroke={active ? "var(--accent)" : "var(--text-ghost)"}
-                strokeWidth={active ? 2 : 1.5}
-                strokeDasharray={active ? undefined : "1 5"}
+                stroke={
+                  active
+                    ? "var(--accent)"
+                    : opens
+                      ? "var(--text-tertiary)"
+                      : "var(--text-ghost)"
+                }
+                strokeWidth={active ? 2 : opens ? 1.5 : 1.25}
+                strokeDasharray={opens || active ? undefined : "1 5"}
+                markerEnd={opens ? `url(#${active ? "arrow-live" : "arrow-quiet"})` : undefined}
+                // With something selected, the rest of the map steps back so
+                // one path can be followed without losing it in the others.
+                opacity={selectedId && !active ? 0.25 : 1}
+                style={{ transition: "opacity 100ms ease-out" }}
               />
             );
           })}
@@ -325,6 +371,16 @@ export function Canvas({
           const dimmed = matches
             ? !hit
             : Boolean(selectedId) && !selected && !neighbours.has(n.id);
+          // Addresses mean something to everyone; file names mean nothing to
+          // the people Codarc is for.
+          const second =
+            n.kind === "screen"
+              ? n.code
+              : n.kind === "door"
+                ? // "POST /api/change" is two ideas, and the first one is
+                  // programmer's grammar. The address alone is enough.
+                  n.code.replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/i, "")
+                : null;
 
           return (
             <div
@@ -372,12 +428,23 @@ export function Canvas({
                 style={{ background: KIND_COLOR[n.kind] }}
               />
               <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium text-primary">
+                <span
+                  className={cn(
+                    "block truncate text-[13px] font-medium text-primary",
+                    // Nothing underneath, so the name sits in the middle.
+                    !second && "leading-[1.3]",
+                  )}
+                >
                   {n.title}
                 </span>
-                <span className="block truncate font-mono text-[10.5px] text-tertiary">
-                  {n.code}
-                </span>
+                {/* A page's address is worth showing — people recognise
+                    "/pricing". A file name isn't; that belongs on the panel
+                    for anyone who asks for it. */}
+                {second && (
+                  <span className="block truncate font-mono text-[10.5px] text-tertiary">
+                    {second}
+                  </span>
+                )}
               </span>
             </div>
           );
