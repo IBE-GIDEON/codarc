@@ -585,9 +585,10 @@ function writeOverview(
     bits.push(`This app is mostly about ${top[0]}.`);
   }
 
+  // Page first, and page loudest: it's the thing the reader recognises.
   const parts: string[] = [];
   if (screens) parts.push(`${plural(screens, "page")} people can visit`);
-  if (doors) parts.push(`${plural(doors, "place")} where requests come in`);
+  if (doors) parts.push(`${plural(doors, "thing")} those pages set off`);
   if (data) parts.push(`${plural(data, "kind")} of information it stores`);
 
   if (parts.length) {
@@ -618,10 +619,12 @@ function writeOverview(
  * the one omission you'd actually notice.
  */
 const CAPS: Record<NodeKind, number> = {
-  screen: 14,
+  // Codarc is about pages, so every page is drawn. What sits behind them is
+  // detail on a card, and detail is capped.
+  screen: 40,
   door: 16,
   logic: 12,
-  data: 12,
+  data: 10,
 };
 
 /**

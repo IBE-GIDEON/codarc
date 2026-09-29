@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronRight, ChevronsLeft, FileText, HelpCircle, Share2 } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
-import { KIND_LEGEND, KIND_COLOR } from "@/components/workspace/kind";
+import { KIND_COLOR } from "@/components/workspace/kind";
 import { SearchField } from "@/components/workspace/search-field";
 import { highlightParts } from "@/components/workspace/search";
 import { Wordmark } from "@/components/logo";
@@ -13,6 +13,22 @@ import { Account } from "@/components/workspace/account";
 import { setSidebarOpen } from "@/components/workspace/sidebar-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/cn";
+
+/** Pages first and alone; the machinery is one group underneath. */
+const SECTIONS: {
+  key: string;
+  label: string;
+  kinds: NodeKind[];
+  colour: string;
+}[] = [
+  { key: "pages", label: "Pages", kinds: ["screen"], colour: KIND_COLOR.screen },
+  {
+    key: "behind",
+    label: "Behind the pages",
+    kinds: ["door", "logic", "data"],
+    colour: KIND_COLOR.logic,
+  },
+];
 
 export function MapSidebar({
   map,
@@ -55,10 +71,8 @@ export function MapSidebar({
     Object.values(map.stats.found).reduce((a, b) => a + b, 0) - map.nodes.length;
 
   const [open, setOpen] = React.useState<Record<string, boolean>>({
-    screen: true,
-    door: true,
-    logic: false,
-    data: false,
+    pages: true,
+    behind: false,
   });
 
   return (
@@ -130,18 +144,23 @@ export function MapSidebar({
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" data-tour="list">
-        {KIND_LEGEND.map(({ kind, label, hint }) => {
-          const list = grouped.get(kind) ?? [];
+        {/*
+         * Pages are the list. Everything else is what happens behind a page,
+         * gathered into one quiet group at the bottom for anyone who goes
+         * looking — it isn't the thing the app is about.
+         */}
+        {SECTIONS.map(({ key, label, kinds, colour }) => {
+          const list = kinds.flatMap((k) => grouped.get(k) ?? []);
           if (!list.length) return null;
+          const found = kinds.reduce((sum, k) => sum + map.stats.found[k], 0);
           // A search should show you what it found, not make you expand it.
-          const isOpen = matches ? true : open[kind];
+          const isOpen = matches ? true : open[key];
 
           return (
-            <div key={kind} className="mb-1">
+            <div key={key} className="mb-1">
               <button
-                onClick={() => setOpen((o) => ({ ...o, [kind]: !o[kind] }))}
+                onClick={() => setOpen((o) => ({ ...o, [key]: !o[key] }))}
                 className="notion-hover flex h-[27px] w-full items-center gap-1.5 px-2 text-left"
-                title={hint}
               >
                 <ChevronRight
                   className={cn(
@@ -151,15 +170,13 @@ export function MapSidebar({
                 />
                 <span
                   className="h-3 w-[4px] shrink-0 rounded-full"
-                  style={{ background: KIND_COLOR[kind] }}
+                  style={{ background: colour }}
                 />
                 <span className="text-[13px] font-medium text-secondary">
                   {label}
                 </span>
                 <span className="ml-auto font-mono text-[11px] text-ghost">
-                  {!matches && map.stats.found[kind] > list.length
-                    ? `${list.length}/${map.stats.found[kind]}`
-                    : list.length}
+                  {!matches && found > list.length ? `${list.length}/${found}` : list.length}
                 </span>
               </button>
 
@@ -169,13 +186,20 @@ export function MapSidebar({
                     key={n.id}
                     onClick={() => onSelect(n.id)}
                     className={cn(
-                      "flex h-[27px] w-full items-center rounded-sm pr-2 pl-[30px] text-left",
+                      "flex h-[27px] w-full items-center gap-2 rounded-sm pr-2 pl-[30px] text-left",
                       "transition-[background] duration-[20ms] ease-in",
                       selectedId === n.id
                         ? "bg-active font-medium text-primary"
                         : "text-secondary hover:bg-hover",
                     )}
                   >
+                    {/* In the mixed group, the dot says which kind it is. */}
+                    {key === "behind" && (
+                      <span
+                        className="size-1.5 shrink-0 rounded-full"
+                        style={{ background: KIND_COLOR[n.kind] }}
+                      />
+                    )}
                     <span className="truncate text-[13px]">
                       {highlightParts(n.title, query).map((part, i) =>
                         part.hit ? (
