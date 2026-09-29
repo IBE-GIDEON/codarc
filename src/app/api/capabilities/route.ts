@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isConfigured } from "@/lib/github-app";
 import { atLeast, displayName, entitlement, getAccount } from "@/lib/accounts";
+import { keyForDrafting } from "@/lib/claude-key";
 import { usageSummary } from "@/lib/usage";
 import { canSignIn, currentUser } from "@/lib/session";
-import { hasEnv } from "@/lib/env";
+
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
     : await entitlement(user);
   const paid = ent.plan !== "none";
   const account = user ? await getAccount(user.id) : null;
+  const claudeKey = user && !asCustomer ? await keyForDrafting(user.id, ent.billingId) : null;
 
   return NextResponse.json({
     user: user && {
@@ -45,7 +47,9 @@ export async function GET(request: Request) {
     hasPlan: paid,
     isStudio: atLeast(ent.plan, "studio"),
     usage: paid ? await usageSummary(ent) : null,
-    canDraft: hasEnv("ANTHROPIC_API_KEY") && Boolean(user) && paid && ent.canEdit,
+    canDraft: Boolean(claudeKey) && Boolean(user) && paid && ent.canEdit,
+    // No key anywhere: theirs, their team's, or Codarc's own.
+    needsKey: Boolean(user) && paid && ent.canEdit && !claudeKey,
     canSend: isConfigured(),
     connected: Boolean(installation),
   });

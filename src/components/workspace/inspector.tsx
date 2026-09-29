@@ -130,6 +130,8 @@ export function Inspector({
     hasPlan: boolean;
     canEdit: boolean;
     canDraft: boolean;
+    /** Paid, allowed, but nobody has supplied a Claude key yet. */
+    needsKey: boolean;
     canSend: boolean;
     connected: boolean;
   }>({
@@ -138,6 +140,7 @@ export function Inspector({
     hasPlan: true,
     canEdit: true,
     canDraft: true,
+    needsKey: false,
     canSend: true,
     connected: false,
   });

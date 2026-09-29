@@ -8,6 +8,7 @@ import { currentUser } from "@/lib/session";
 import { entitlement } from "@/lib/accounts";
 import { checkChangeAllowance, claimProject, recordChange } from "@/lib/usage";
 import { readToken, repoAccess } from "@/lib/access";
+import { keyForDrafting } from "@/lib/claude-key";
 import { GithubAppError } from "@/lib/github-app";
 
 export const runtime = "nodejs";
@@ -122,6 +123,8 @@ export async function POST(request: Request) {
       node,
       instruction: instruction.trim(),
       repoToken: access ? await readToken(access, name) : undefined,
+      // Their own key, their team owner's, or Codarc's — in that order.
+      claudeKey: (await keyForDrafting(user.id, ent.billingId)) ?? undefined,
     });
 
     await recordChange(ent, `${owner}/${name}`);

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { fetchFiles } from "@/lib/github";
 import { countChanges, lineDiff, type DiffHunk } from "@/lib/diff";
 import type { GraphNode } from "@/lib/graph";
-import { hasEnv } from "@/lib/env";
+
 
 export class ChangeError extends Error {
   constructor(
@@ -92,6 +92,7 @@ export async function proposeChange({
   node,
   instruction,
   repoToken,
+  claudeKey,
 }: {
   owner: string;
   repo: string;
@@ -100,12 +101,14 @@ export async function proposeChange({
   instruction: string;
   /** Needed for a private repository; checked by the caller. */
   repoToken?: string;
+  /** Whose Claude key pays for this draft — theirs, their team's, or ours. */
+  claudeKey?: string;
 }): Promise<Proposal> {
-  if (!hasEnv("ANTHROPIC_API_KEY")) {
+  if (!claudeKey) {
     throw new ChangeError(
-      "Codarc isn't set up to write changes yet",
-      "The server is missing its ANTHROPIC_API_KEY. Add it where this is hosted, then redeploy.",
-      503,
+      "Add your Claude key to change things",
+      "Codarc writes the change with Claude, and Claude bills whoever's key it is. Add yours on your account page — it takes a minute, and it stays private to you.",
+      402,
     );
   }
 
@@ -132,7 +135,7 @@ export async function proposeChange({
     parts.push(`<file path="${path}">\n${text}\n</file>`);
   }
 
-  const client = new Anthropic();
+  const client = new Anthropic({ apiKey: claudeKey });
 
   let response;
   try {
@@ -167,7 +170,7 @@ ${parts.join("\n\n")}`,
     if (err instanceof Anthropic.AuthenticationError) {
       throw new ChangeError(
         "Codarc's writing key was rejected",
-        "The ANTHROPIC_API_KEY on the server isn't valid. Check it and restart.",
+        "Anthropic turned that key down. Check it on your account page — a key can be revoked, or run out of credit.",
         503,
       );
     }

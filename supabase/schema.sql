@@ -140,3 +140,9 @@ alter table teams         enable row level security;
 alter table team_members  enable row level security;
 alter table team_invites  enable row level security;
 alter table drafts        enable row level security;
+
+-- ------------------------------------------------------- your own AI key
+-- A customer can bring their own Claude key, so their changes are billed to
+-- them. Stored encrypted; the hint is the only part ever shown back.
+alter table accounts add column if not exists claude_key      text;
+alter table accounts add column if not exists claude_key_hint text;
