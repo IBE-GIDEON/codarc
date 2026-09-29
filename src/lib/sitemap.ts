@@ -10,15 +10,15 @@ import type { GraphNode, NodeKind, RepoMap } from "@/lib/graph";
  * links people can click curve across it in colour.
  */
 
-export const CARD_W = 196;
+export const CARD_W = 212;
 const HEAD_H = 46;
 const ROW_H = 23;
 const CARD_PAD = 10;
-const GAP_X = 26;
-const GAP_Y = 58;
+const GAP_X = 52;
+const GAP_Y = 92;
 const MAX_ROWS = 6;
 /** How many cards sit side by side before a row wraps. */
-const PER_ROW = 5;
+const PER_ROW = 4;
 
 /** One line inside a card: something the page does. */
 export type Block = {

@@ -82,17 +82,30 @@ export function SitemapCanvas({
     if (!host || !sitemap.cards.length) return;
     const pad = 56;
     const { width, height } = host.getBoundingClientRect();
-    // Never open so far out that the cards can't be read — better to start
-    // legible and let people pan than to show a field of grey stamps.
+    /*
+     * Open big and squared to the screen. A map that arrives at 40% is a
+     * field of grey stamps — better to fill the window and let anyone who
+     * wants the whole thing zoom out themselves.
+     */
     const scale = Math.max(
-      0.6,
-      Math.min((width - pad * 2) / sitemap.width, (height - pad * 2) / sitemap.height, 1),
+      0.85,
+      Math.min((width - pad * 2) / sitemap.width, (height - pad * 2) / sitemap.height, 1.15),
     );
-    const fits = sitemap.width * scale <= width - pad * 2;
+    const fitsWide = sitemap.width * scale <= width - pad * 2;
+    const fitsTall = sitemap.height * scale <= height - pad * 2;
+    // When it's wider than the window, open on the top of the tree rather
+    // than the left edge — otherwise the first page you'd look for is the
+    // one off screen.
+    const top = sitemap.cards.reduce(
+      (best, c) => (!best || c.y < best.y ? c : best),
+      null as (typeof sitemap.cards)[number] | null,
+    );
+    const anchor = top ? top.x + CARD_W / 2 : sitemap.width / 2;
+
     setView({
       k: scale,
-      x: fits ? width / 2 - (sitemap.width / 2) * scale : pad,
-      y: pad,
+      x: fitsWide ? width / 2 - (sitemap.width / 2) * scale : width / 2 - anchor * scale,
+      y: fitsTall ? Math.max(pad, height / 2 - (sitemap.height / 2) * scale) : pad,
     });
     setReady(true);
   }, [sitemap]);
@@ -240,6 +253,9 @@ export function SitemapCanvas({
             if (!from || !to) return null;
             const mine =
               hovered === j.from || hovered === j.to || litCard === j.from || litCard === j.to;
+            // Drawn only for the card you're on. Every link at once is a
+            // bird's nest over the structure, and the structure is the point.
+            if (!mine) return null;
             const colour = JOURNEY_COLOURS[i % JOURNEY_COLOURS.length];
             return (
               <path
@@ -247,10 +263,8 @@ export function SitemapCanvas({
                 d={journeyPath(from, to)}
                 fill="none"
                 stroke={colour}
-                strokeWidth={mine ? 2 : 1.25}
-                markerEnd={mine ? "url(#journey-head)" : undefined}
-                // Quiet until you're on one of its two ends.
-                opacity={hovered || litCard ? (mine ? 1 : 0.12) : 0.42}
+                strokeWidth={2}
+                markerEnd="url(#journey-head)"
                 style={{ transition: "opacity 100ms ease-out" }}
               />
             );
