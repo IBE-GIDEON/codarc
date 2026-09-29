@@ -203,7 +203,7 @@ export function Workspace({
    */
   const [inside, setInside] = React.useState<Feature | null>(null);
   // Cards list what each page does, or collapse to plain structure.
-  const [detailed, setDetailed] = React.useState(false);
+  const [detailed, setDetailed] = React.useState(true);
 
   // Stepping into or out of a part re-frames the canvas.
   React.useEffect(() => {

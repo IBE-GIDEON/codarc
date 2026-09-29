@@ -37,6 +37,12 @@ export type PageCard = {
   more: number;
   /** Everything this page does, counted even when the card is collapsed. */
   inside: number;
+  /**
+   * Which branch of the app this card belongs to. Every page under
+   * /dashboard shares one colour, so a section can be seen at a glance
+   * instead of read one card at a time.
+   */
+  branch: number;
   depth: number;
   x: number;
   y: number;
@@ -105,10 +111,13 @@ export function buildSitemap(map: RepoMap, detailed = true): Sitemap {
       more: detailed ? Math.max(0, inside.length - blocks.length) : 0,
       /** How many things are inside, whether or not they're listed. */
       inside: inside.length,
+      branch: 0,
       depth: 0,
       x: 0,
       y: 0,
-      h: HEAD_H + blocks.length * ROW_H + (blocks.length ? CARD_PAD : 0),
+      // A card with nothing inside still gets its sketch, so a row of cards
+      // lines up instead of stepping up and down.
+      h: HEAD_H + (blocks.length ? blocks.length * ROW_H + CARD_PAD : detailed ? 64 : 0),
     };
     cardByPath.set(card.path, card);
     return card;
@@ -195,6 +204,20 @@ export function buildSitemap(map: RepoMap, detailed = true): Sitemap {
       ...cards.filter((c) => c.depth === card.depth).map((c) => c.h),
     );
     card.y = band + (subRow.get(card.id) ?? 0) * (tallest + 20);
+  }
+
+  // Colour by branch: everything under /dashboard shares a colour, the home
+  // page keeps its own.
+  const branchOf = new Map<string, number>();
+  let nextBranch = 1;
+  for (const card of [...cards].sort((a, b) => a.depth - b.depth)) {
+    if (card.depth === 0) {
+      card.branch = 0;
+      continue;
+    }
+    const top = `/${card.path.split("/").filter(Boolean)[0] ?? ""}`;
+    if (!branchOf.has(top)) branchOf.set(top, nextBranch++);
+    card.branch = branchOf.get(top)!;
   }
 
   // The links people can click, minus the ones the structure already shows.

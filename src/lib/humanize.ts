@@ -82,6 +82,8 @@ function addressesOne(path: string): boolean {
 
 function singular(s: string): string {
   if (/(ss|us|is)$/i.test(s)) return s;
+  // "classes" loses the whole "es", not just the "s".
+  if (/(ches|shes|xes|ses|zes)$/i.test(s)) return s.replace(/es$/i, "");
   return s.replace(/ies$/i, "y").replace(/s$/i, "");
 }
 
@@ -152,24 +154,46 @@ export function dataSummary(name: string): string {
  * /auth/update-password is "Change your password" to everyone alive.
  */
 const SCREENS: { match: RegExp; title: string }[] = [
-  { match: /^\/?(auth|login|signin|sign-in)\/?$/, title: "Sign in" },
-  { match: /(signup|sign-up|register|join)/, title: "Create an account" },
-  { match: /(forgot|reset).*(password)?|password.*(reset|forgot)/, title: "Forgot your password" },
-  { match: /(update|change|new).*password|password.*(update|change)/, title: "Change your password" },
-  { match: /(verify|confirm)/, title: "Confirm your email" },
-  { match: /^\/?(dashboard|home|app)\/?$/, title: "Your dashboard" },
+  { match: /^\/?(auth|login|signin|sign-in)\/?$/, title: "Log In" },
+  { match: /(signup|sign-up|register|join)/, title: "Sign Up" },
+  { match: /(update|change|new).*password|password.*(update|change)/, title: "Update Password" },
+  { match: /(forgot|reset).*(password)?|password.*(reset|forgot)/, title: "Reset Password" },
+  { match: /(verify|confirm)/, title: "Confirm Email" },
+  { match: /^\/?(dashboard|home|app)\/?$/, title: "Dashboard" },
   { match: /(settings|preferences|profile\/edit)/, title: "Settings" },
   { match: /(pricing|plans)/, title: "Pricing" },
-  { match: /(checkout|billing|subscribe)/, title: "Paying" },
-  { match: /(onboarding|welcome|getting-started)/, title: "Getting started" },
+  { match: /(checkout|billing|subscribe)/, title: "Checkout" },
+  { match: /(onboarding|welcome|getting-started)/, title: "Getting Started" },
+  { match: /(privacy)/, title: "Privacy Policy" },
+  { match: /(terms|tos|conditions)/, title: "Terms and Conditions" },
+  { match: /(support|help)/, title: "Support" },
+  { match: /(contact)/, title: "Contact Us" },
+  { match: /(about|company)/, title: "About Us" },
+  { match: /(careers|jobs)/, title: "Careers" },
+  { match: /(blog|news|posts)$/, title: "Blog" },
+  { match: /(404|not-found)/, title: "404 Page" },
 ];
 
+/** "update-password" -> "Update Password", the way a site map is labelled. */
+function titleCase(raw: string): string {
+  return words(raw)
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => (w.length <= 2 && !/^(id|ai)$/i.test(w) ? w : w[0].toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
+/**
+ * What a page is called on the map: the name a person would write on a
+ * sticky note. "Home", "Log In", "Terms and Conditions" — never an address,
+ * never the word "page" tacked on the end.
+ */
 export function screenTitle(routePath: string): string {
   const path = routePath || "/";
-  if (path === "/") return "Home page";
+  if (path === "/") return "Home";
 
   const known = SCREENS.find((s) => s.match.test(path.toLowerCase()));
-  if (known) return `${known.title} page`;
+  if (known) return known.title;
 
   // The last part of the address that means anything: "/r/:owner/:repo/handover"
   // is the handover page, not the "r" page.
@@ -178,16 +202,32 @@ export function screenTitle(routePath: string): string {
     .filter((s) => s && !s.startsWith(":") && !/^[{[]/.test(s) && s.length > 2)
     .pop();
   const subject = last ? words(last) : pathSubject(path);
-  if (subject === "the home page") return "Home page";
+  if (subject === "the home page") return "Home";
 
   // A one-letter folder (/c/:id) tells a person nothing; don't pretend.
   const bare = subject.replace(/^the /, "");
-  if (bare.length <= 2) return addressesOne(path) ? "One item page" : "A short-link page";
+  if (bare.length <= 2) return addressesOne(path) ? "Item Details" : "Short Link";
 
-  const pretty = `${subject.charAt(0).toUpperCase()}${subject.slice(1)}`;
-  // "/collections" lists them; "/collections/:id" shows one. Without this the
-  // two end up with the same name and the map looks duplicated.
-  return addressesOne(path) ? `One ${pretty.toLowerCase()} page` : `${pretty} page`;
+  // "/profiles/new" is where you add one, not a page called "New".
+  if (/^(new|create|add)$/i.test(last ?? "")) {
+    const parent = path
+      .split("/")
+      .filter((s) => s && !s.startsWith(":") && !/^(new|create|add)$/i.test(s))
+      .pop();
+    return `New ${titleCase(singular(words(parent ?? "item")))}`;
+  }
+  if (/^(edit|update)$/i.test(last ?? "")) {
+    const parent = path
+      .split("/")
+      .filter((s) => s && !s.startsWith(":") && !/^(edit|update)$/i.test(s))
+      .pop();
+    return `Edit ${titleCase(singular(words(parent ?? "item")))}`;
+  }
+
+  // "/friends" is the list; "/friends/:id" is one of them, which every site
+  // map in the world labels "Friend Details".
+  if (addressesOne(path)) return `${titleCase(singular(subject))} Details`;
+  return titleCase(subject);
 }
 
 export function screenSummary(routePath: string): string {

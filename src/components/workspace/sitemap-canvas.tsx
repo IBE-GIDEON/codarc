@@ -27,6 +27,20 @@ const ROW_STYLE: Record<NodeKind, { bg: string; text: string }> = {
  */
 const JOURNEY_COLOURS = ["var(--brand-purple)", "var(--c-pink)", "var(--brand-blue)"];
 
+/**
+ * A colour per branch of the app. Grey cards on a grey canvas all weigh the
+ * same, and an eye with nowhere to land reads nothing.
+ */
+const BRANCH_COLOURS = [
+  "var(--c-green)",
+  "var(--brand-purple)",
+  "var(--brand-blue)",
+  "var(--c-pink)",
+  "var(--brand-amber)",
+  "var(--c-teal, var(--c-green))",
+  "var(--c-orange)",
+];
+
 /** Structure: down from the parent, across, down into the child. */
 function branchPath(a: PageCard, b: PageCard) {
   const ax = a.x + CARD_W / 2;
@@ -294,6 +308,10 @@ export function SitemapCanvas({
               )}
               style={{ left: card.x, top: card.y, width: CARD_W }}
             >
+              <span
+                className="block h-[3px] w-full"
+                style={{ background: BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length] }}
+              />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -315,6 +333,35 @@ export function SitemapCanvas({
                   )}
                 </span>
               </button>
+
+              {/* A page with nothing behind it gets a sketch instead of an
+                  empty box — the same trick their site maps use to keep a
+                  card from looking unfinished. */}
+              {detailed && card.blocks.length === 0 && (
+                <div className="px-3 pb-3">
+                  <div
+                    className="flex h-[52px] flex-col justify-center gap-1 rounded-sm px-2"
+                    style={{
+                      background: `color-mix(in srgb, ${
+                        BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length]
+                      } 12%, transparent)`,
+                    }}
+                  >
+                    {[62, 90, 44].map((w, i) => (
+                      <span
+                        key={i}
+                        className="block h-[5px] rounded-full"
+                        style={{
+                          width: `${w}%`,
+                          background: `color-mix(in srgb, ${
+                            BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length]
+                          } 45%, transparent)`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {card.blocks.length > 0 && (
                 <div className="space-y-px px-2 pb-2">
