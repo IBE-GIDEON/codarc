@@ -40,7 +40,8 @@ const COMPARISON: {
       },
       { label: "Your arrangement is remembered", solo: true, studio: true },
       { label: "Search across everything", solo: true, studio: true },
-      { label: "Faster reading of big projects", solo: null, studio: true },
+      // "Faster reading of big projects" lived here and was never built. A
+      // promise on the page somebody pays from is the expensive kind.
     ],
   },
   {
@@ -87,6 +88,10 @@ const FAQ = [
   {
     q: "What counts as one change?",
     a: "One thing you asked for, and the proposal that comes back. If you don't like it and ask again differently, that's a second one. Looking at your map, searching it, and reading any part of it are unlimited on both plans.",
+  },
+  {
+    q: "Do I need my own Claude?",
+    a: "Yes, and it's the reason a plan costs what it does rather than three times that. Codarc does the reading and the writing with your own Claude key: you paste it in once under Account, and each change costs you 10 to 30 US cents, billed by Anthropic rather than by us. One thing worth knowing before you try — a Claude Pro or Max subscription is a different product and can't be connected. The key comes from console.anthropic.com, where you only pay for what you use.",
   },
   {
     q: "Do I need to know how to code?",
@@ -219,7 +224,13 @@ export default function Pricing() {
               ))}
             </div>
 
-            <p className="mt-5 text-center text-[13px] text-tertiary">
+            <p className="mx-auto mt-5 max-w-[52ch] text-center text-[13px] leading-[1.55] text-tertiary">
+              Both plans run on your own Claude key, which you connect in a
+              minute once you&apos;re in. Each change costs you 10 to 30 US
+              cents, billed by Anthropic rather than by us — that&apos;s why
+              this costs what it does.
+            </p>
+            <p className="mt-2 text-center text-[13px] text-tertiary">
               Thirty days, money back, no conversation required.
             </p>
           </Container>

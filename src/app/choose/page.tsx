@@ -62,6 +62,11 @@ export default async function ChoosePlan({
             money to run. Your free look is one app; a plan is every app, and
             the changes too.
           </p>
+          <p className="mx-auto mt-2 max-w-[46ch] text-[14px] leading-[1.55] text-tertiary">
+            Changes run on your own Claude key, which you connect under
+            Account in a minute. A Claude Pro or Max subscription is a
+            different product and can&apos;t be connected.
+          </p>
         </div>
 
         <div className="mt-10">

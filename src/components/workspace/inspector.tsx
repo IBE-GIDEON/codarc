@@ -368,6 +368,17 @@ export function Inspector({
                 look around, search, and share this map.
               </p>
             </div>
+          ) : caps.needsKey ? (
+            <div className="rounded-sm bg-c-blue-bg p-3">
+              <p className="text-[12.5px] leading-[1.55] text-primary">
+                Connect your Claude to change things.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
+                Codarc writes the change with your own Claude, which is why
+                the plan costs what it does. It takes a minute to connect,
+                and each change costs you 10 to 30 US cents.
+              </p>
+            </div>
           ) : !caps.canDraft ? (
             <div className="rounded-sm bg-c-gray-bg p-3">
               <p className="text-[12.5px] leading-[1.55] text-primary">
@@ -487,6 +498,12 @@ export function Inspector({
           <a href={`/choose?back=${encodeURIComponent(here)}`}>
             <Button variant="primary" size="lg" className="w-full">
               See the plans <ArrowRight className="size-3.5" />
+            </Button>
+          </a>
+        ) : caps.needsKey ? (
+          <a href="/account">
+            <Button variant="primary" size="lg" className="w-full">
+              Connect your Claude <ArrowRight className="size-3.5" />
             </Button>
           </a>
         ) : !caps.canDraft ? (
