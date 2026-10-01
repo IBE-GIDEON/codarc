@@ -41,14 +41,30 @@ const BRANCH_COLOURS = [
   "var(--c-orange)",
 ];
 
-/** Structure: down from the parent, across, down into the child. */
+/**
+ * Structure: down from the parent, across, down into the child — with the
+ * corners rounded off, which is the difference between a diagram that looks
+ * drawn and one that looks printed by a machine.
+ */
 function branchPath(a: PageCard, b: PageCard) {
   const ax = a.x + CARD_W / 2;
   const ay = a.y + a.h;
   const bx = b.x + CARD_W / 2;
   const by = b.y;
   const mid = ay + (by - ay) / 2;
-  return `M${ax} ${ay} V${mid} H${bx} V${by}`;
+
+  if (Math.abs(bx - ax) < 2) return `M${ax} ${ay} V${by}`;
+
+  const dir = bx > ax ? 1 : -1;
+  const r = Math.min(12, Math.abs(bx - ax) / 2, (mid - ay) / 2, (by - mid) / 2);
+  return [
+    `M${ax} ${ay}`,
+    `V${mid - r}`,
+    `Q ${ax} ${mid} ${ax + dir * r} ${mid}`,
+    `H ${bx - dir * r}`,
+    `Q ${bx} ${mid} ${bx} ${mid + r}`,
+    `V ${by}`,
+  ].join(" ");
 }
 
 /** A journey: a soft curve from the side of one card to the side of another. */
@@ -303,7 +319,9 @@ export function SitemapCanvas({
                   ? "shadow-[0_0_0_2px_var(--accent),var(--shadow-popover)]"
                   : hit
                     ? "shadow-[0_0_0_2px_var(--brand-amber),var(--shadow-popover)]"
-                    : "shadow-card",
+                    : // A hairline so a card reads as a card, the way a drawn
+                      // site map outlines every page.
+                      "shadow-[0_0_0_1px_var(--border-strong),var(--shadow-card)]",
                 dim && "opacity-30",
               )}
               style={{ left: card.x, top: card.y, width: CARD_W }}

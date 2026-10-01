@@ -894,7 +894,10 @@ export async function analyzeRepo(
       if (n.title.toLowerCase().includes(qualifier.toLowerCase())) return;
 
       const pretty = qualifier.replace(/[_-]+/g, " ");
-      n.title = `${n.title} · ${pretty.charAt(0).toUpperCase()}${pretty.slice(1)}`;
+      const word = `${pretty.charAt(0).toUpperCase()}${pretty.slice(1)}`;
+      // Pages read as names, so the qualifier goes in front: "Dashboard
+      // Settings", not "Settings · Dashboard". Everything else keeps the dot.
+      n.title = n.kind === "screen" ? `${word} ${n.title}` : `${n.title} · ${word}`;
     });
   }
 
