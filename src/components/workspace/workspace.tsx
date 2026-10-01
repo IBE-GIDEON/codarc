@@ -317,7 +317,7 @@ export function Workspace({
           rememberMap({
             owner: map.owner,
             repo: map.repo,
-            overview: map.overview.slice(0, 160),
+            overview: map.overview.slice(0, 160) || undefined,
             isPrivate: map.isPrivate,
           });
         }

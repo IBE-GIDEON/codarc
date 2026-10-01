@@ -21,7 +21,6 @@ import {
   featureOf,
   behindTheScenes,
   usedBy,
-  plural,
   purposeTitle,
   routeSummary,
   routeTitle,
@@ -562,48 +561,27 @@ function detectStacks(files: Map<string, string>, paths: string[]): string[] {
  * costs nothing and works on every deployment — the first thing a customer
  * wants is "what even is this", and they shouldn't have to pay to find out.
  */
-function writeOverview(
-  nodes: GraphNode[],
-  features: { name: string; count: number }[],
-  stacks: string[],
-): string {
-  const count = (kind: NodeKind) => nodes.filter((n) => n.kind === kind).length;
-  const screens = count("screen");
-  const doors = count("door");
-  const data = count("data");
+/**
+ * What this app is, in the words of whoever built it.
+ *
+ * We used to write this ourselves: a guess at the subject from folder names,
+ * a count of the pages, the frameworks we spotted. Every part of it either
+ * repeated something already on the screen or said nothing at all, and a
+ * paragraph that says nothing is worse than no paragraph — it teaches people
+ * that the words here are not worth reading.
+ *
+ * So it is their own description from GitHub, or it is nothing.
+ */
+function describeApp(description: string | null): string {
+  const said = (description ?? "")
+    .replace(/s+/g, " ")
+    .replace(/^[^p{L}p{N}]+/u, "")
+    .trim();
 
-  const bits: string[] = [];
-
-  const top = features.slice(0, 4).map((f) => f.name);
-  if (top.length >= 2) {
-    const list =
-      top.length === 2
-        ? top.join(" and ")
-        : `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}`;
-    bits.push(`This app is mostly about ${list}.`);
-  } else if (top.length === 1) {
-    bits.push(`This app is mostly about ${top[0]}.`);
-  }
-
-  // Page first, and page loudest: it's the thing the reader recognises.
-  const parts: string[] = [];
-  if (screens) parts.push(`${plural(screens, "page")} people can visit`);
-  if (doors) parts.push(`${plural(doors, "thing")} those pages set off`);
-  if (data) parts.push(`${plural(data, "kind")} of information it stores`);
-
-  if (parts.length) {
-    const list =
-      parts.length === 1
-        ? parts[0]
-        : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
-    bits.push(`It has ${list}.`);
-  }
-
-  if (stacks.length) {
-    bits.push(`It was built with ${stacks.slice(0, 3).join(", ")}.`);
-  }
-
-  return bits.join(" ") || "We read this project but couldn't work out its shape.";
+  // Too short to be a sentence about anything: "app", "test", "wip".
+  if (said.length < 12) return "";
+  // Three lines at most. Past that it is a readme, not a description.
+  return said.length > 240 ? said.slice(0, 237).trimEnd() + "…" : said;
 }
 
 /* ----------------------------------------------------------------- layout */
@@ -1092,7 +1070,7 @@ export async function analyzeRepo(
   return {
     owner,
     repo,
-    overview: writeOverview(nodes, features, detectStacks(files, paths)),
+    overview: describeApp(meta.description),
     features,
     branch: meta.defaultBranch,
     description: meta.description,

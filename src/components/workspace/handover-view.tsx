@@ -227,12 +227,16 @@ export function HandoverView({
         </p>
 
         <section className="mt-8 rounded-sm bg-sunken p-5">
-          <h2 className="text-[13px] font-medium text-tertiary">
-            What this app is
-          </h2>
-          <p className="mt-2 text-[17px] leading-[1.6] text-primary">
-            {doc.overview}
-          </p>
+          {doc.overview && (
+            <>
+              <h2 className="text-[13px] font-medium text-tertiary">
+                What this app is
+              </h2>
+              <p className="mt-2 text-[17px] leading-[1.6] text-primary">
+                {doc.overview}
+              </p>
+            </>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
             {doc.counts.map((c) => (
