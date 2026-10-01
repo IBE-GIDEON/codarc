@@ -2,6 +2,9 @@ import { Container, Section } from "@/components/landing/shared";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { RepoInput } from "@/components/landing/repo-input";
 import { Reveal } from "@/components/landing/reveal";
+import { Button } from "@/components/ui/button";
+import { GithubMark } from "@/components/brand-marks";
+import { DEMO, SIGN_UP } from "@/components/landing/sign-up";
 
 export function Closing() {
   return (
@@ -21,11 +24,28 @@ export function Closing() {
               Point Codarc at your app.
             </h2>
             <p className="mx-auto mt-4 max-w-[46ch] text-[17px] leading-[1.55] text-secondary">
-              Paste a public link and watch it draw. Connect your own project
-              when you want it making changes.
+              Sign up and connect it, and Codarc draws the whole thing. Or see
+              one drawn first — no account, nothing to install.
             </p>
 
-            <div className="mt-8">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+              <a href={SIGN_UP}>
+                <Button variant="primary" size="lg" className="h-11 px-5 text-[15px]">
+                  <GithubMark className="size-4" /> Sign up free
+                </Button>
+              </a>
+              <a href={DEMO}>
+                <Button variant="secondary" size="lg" className="h-11 px-5 text-[15px]">
+                  Try a demo project
+                </Button>
+              </a>
+            </div>
+
+            {/* The quietest way in, for anyone not ready to hand over a login. */}
+            <div className="mt-12">
+              <p className="mb-3 text-[13px] text-tertiary">
+                Or paste any public repository and look around
+              </p>
               <RepoInput />
             </div>
           </Reveal>

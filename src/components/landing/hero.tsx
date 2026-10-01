@@ -4,6 +4,8 @@ import { Container, Frame, Highlight } from "@/components/landing/shared";
 import { ProductShot } from "@/components/landing/product-shot";
 import { Reveal } from "@/components/landing/reveal";
 import { StackWall } from "@/components/landing/stack-wall";
+import { GithubMark } from "@/components/brand-marks";
+import { DEMO, SIGN_UP } from "@/components/landing/sign-up";
 
 export function Hero() {
   return (
@@ -40,20 +42,22 @@ export function Hero() {
             delay={170}
             className="mt-8 flex flex-wrap items-center justify-center gap-2.5"
           >
-            <a href="#start">
+            <a href={SIGN_UP}>
               <Button variant="primary" size="lg" className="h-11 px-5 text-[15px]">
-                Map my app <ArrowRight className="size-4" />
+                <GithubMark className="size-4" /> Sign up free
               </Button>
             </a>
-            <a href="#how">
+            {/* Nobody signs up for a picture they haven't seen yet. */}
+            <a href={DEMO}>
               <Button variant="secondary" size="lg" className="h-11 px-5 text-[15px]">
-                Show me how it works
+                Try a demo project <ArrowRight className="size-4" />
               </Button>
             </a>
           </Reveal>
 
           <Reveal delay={230} as="p" className="mt-4 text-[13px] text-tertiary">
-            You don&apos;t need to know how to code. You do need to own the app.
+            Free to look at any app. You don&apos;t need to know how to code —
+            you do need to own the app you&apos;re changing.
           </Reveal>
         </div>
 

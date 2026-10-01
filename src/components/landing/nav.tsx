@@ -5,6 +5,9 @@ import { Wordmark } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/landing/shared";
+import { GithubMark } from "@/components/brand-marks";
+import { DEMO, SIGN_UP } from "@/components/landing/sign-up";
+import { MousePointerClick } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const links = [
@@ -38,6 +41,13 @@ export function Nav() {
           </a>
 
           <nav className="hidden items-center gap-1 md:flex">
+            <a
+              href={DEMO}
+              className="notion-hover flex items-center gap-1.5 px-2.5 py-1.5 text-[14px] font-medium text-primary underline decoration-[var(--border-strong)] underline-offset-4 hover:decoration-[var(--accent)]"
+            >
+              <MousePointerClick className="size-3.5 text-tertiary" />
+              Try a demo project
+            </a>
             {links.map(([label, href]) => (
               <a
                 key={label}
@@ -60,9 +70,10 @@ export function Nav() {
             >
               Log in
             </a>
-            <a href="#start" className="shrink-0">
+            {/* Signing up is the one thing this page is for. */}
+            <a href={SIGN_UP} className="shrink-0">
               <Button variant="primary" size="lg">
-                Try Codarc
+                <GithubMark className="size-3.5" /> Sign up free
               </Button>
             </a>
           </div>
