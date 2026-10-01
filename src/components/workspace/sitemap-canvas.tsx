@@ -1,16 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Maximize2, Minus, Plus } from "lucide-react";
+import { ChevronRight, Maximize2, Minus, Plus } from "lucide-react";
 import type { NodeKind } from "@/lib/graph";
-import { CARD_W, type PageCard, type Sitemap } from "@/lib/sitemap";
+import { CARD_W, type Card, type Level, type Sitemap } from "@/lib/sitemap";
 import { IconButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
 /**
- * The site map: a card per page, what's inside it listed in the card, the
- * structure drawn in straight elbows beneath, and the links someone can
- * click curving across it in colour.
+ * One drawing, used at every depth: a card per thing, the structure in
+ * straight elbows beneath, and the links someone can click curving across it
+ * in colour.
+ *
+ * A card with somewhere to go opens it. A card at the bottom of the tree, and
+ * every coloured row, opens the piece itself in the panel on the right.
  */
 
 /** A row's tint, by what kind of thing it is. */
@@ -28,7 +31,7 @@ const ROW_STYLE: Record<NodeKind, { bg: string; text: string }> = {
 const JOURNEY_COLOURS = ["var(--brand-purple)", "var(--c-pink)", "var(--brand-blue)"];
 
 /**
- * A colour per branch of the app. Grey cards on a grey canvas all weigh the
+ * A colour per part of the app. Grey cards on a grey canvas all weigh the
  * same, and an eye with nowhere to land reads nothing.
  */
 const BRANCH_COLOURS = [
@@ -41,12 +44,18 @@ const BRANCH_COLOURS = [
   "var(--c-orange)",
 ];
 
+/** The stripe across the top: which part this is, or what kind of thing. */
+function stripeOf(card: Card): string {
+  if (card.kind && card.kind !== "screen") return ROW_STYLE[card.kind].text;
+  return BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length];
+}
+
 /**
  * Structure: down from the parent, across, down into the child — with the
  * corners rounded off, which is the difference between a diagram that looks
  * drawn and one that looks printed by a machine.
  */
-function branchPath(a: PageCard, b: PageCard) {
+function branchPath(a: Card, b: Card) {
   const ax = a.x + CARD_W / 2;
   const ay = a.y + a.h;
   const bx = b.x + CARD_W / 2;
@@ -68,7 +77,7 @@ function branchPath(a: PageCard, b: PageCard) {
 }
 
 /** A journey: a soft curve from the side of one card to the side of another. */
-function journeyPath(a: PageCard, b: PageCard) {
+function journeyPath(a: Card, b: Card) {
   const rightward = b.x > a.x;
   const ax = rightward ? a.x + CARD_W : a.x;
   const bx = rightward ? b.x : b.x + CARD_W;
@@ -84,6 +93,7 @@ export function SitemapCanvas({
   sitemap,
   selectedId,
   onSelect,
+  onOpen,
   matches,
   detailed,
   onDetailed,
@@ -91,6 +101,8 @@ export function SitemapCanvas({
   sitemap: Sitemap;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** Step into a part, or into a page. */
+  onOpen: (level: Level) => void;
   matches: Set<string> | null;
   /** Cards list what's inside them, or collapse to plain structure. */
   detailed: boolean;
@@ -116,19 +128,24 @@ export function SitemapCanvas({
      * Open big and squared to the screen. A map that arrives at 40% is a
      * field of grey stamps — better to fill the window and let anyone who
      * wants the whole thing zoom out themselves.
+     *
+     * The floor gives way to the width, though: a map opens as large as it
+     * can while every card is still on the screen, because a card cut off
+     * at the edge is a card nobody knows is there. Running off the bottom
+     * is fine — everybody scrolls down.
      */
-    const scale = Math.max(
-      0.85,
-      Math.min((width - pad * 2) / sitemap.width, (height - pad * 2) / sitemap.height, 1.15),
-    );
+    const across = (width - pad * 2) / sitemap.width;
+    const down = (height - pad * 2) / sitemap.height;
+    const floor = Math.min(0.85, Math.max(0.45, across));
+    const scale = Math.max(floor, Math.min(across, down, 1.15));
     const fitsWide = sitemap.width * scale <= width - pad * 2;
     const fitsTall = sitemap.height * scale <= height - pad * 2;
     // When it's wider than the window, open on the top of the tree rather
-    // than the left edge — otherwise the first page you'd look for is the
+    // than the left edge — otherwise the first card you'd look for is the
     // one off screen.
     const top = sitemap.cards.reduce(
       (best, c) => (!best || c.y < best.y ? c : best),
-      null as (typeof sitemap.cards)[number] | null,
+      null as Card | null,
     );
     const anchor = top ? top.x + CARD_W / 2 : sitemap.width / 2;
 
@@ -154,6 +171,15 @@ export function SitemapCanvas({
     ro.observe(host);
     return () => ro.disconnect();
   }, [fit]);
+
+  // Stepping in or out, or collapsing the cards, re-frames what's on screen.
+  const shape = `${sitemap.title}:${sitemap.cards.length}:${detailed}`;
+  const lastShape = React.useRef(shape);
+  React.useEffect(() => {
+    if (lastShape.current === shape) return;
+    lastShape.current = shape;
+    if (fitted.current) fit();
+  }, [shape, fit]);
 
   const pan = React.useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   const [grabbing, setGrabbing] = React.useState(false);
@@ -304,8 +330,8 @@ export function SitemapCanvas({
         {sitemap.cards.map((card) => {
           const selected = selectedId === card.id;
           const hit = matches?.has(card.id) ?? false;
-          const dim =
-            matches && !hit && !card.blocks.some((b) => matches.has(b.id));
+          const dim = matches && !hit && !card.blocks.some((b) => matches.has(b.id));
+          const stripe = stripeOf(card);
 
           return (
             <div
@@ -314,7 +340,7 @@ export function SitemapCanvas({
               onMouseEnter={() => setHovered(card.id)}
               onMouseLeave={() => setHovered((h) => (h === card.id ? null : h))}
               className={cn(
-                "absolute overflow-hidden rounded-lg bg-raised transition-[box-shadow,opacity] duration-150",
+                "reveal-parent absolute overflow-hidden rounded-lg bg-raised transition-[box-shadow,opacity] duration-150",
                 selected
                   ? "shadow-[0_0_0_2px_var(--accent),var(--shadow-popover)]"
                   : hit
@@ -326,44 +352,52 @@ export function SitemapCanvas({
               )}
               style={{ left: card.x, top: card.y, width: CARD_W }}
             >
-              <span
-                className="block h-[3px] w-full"
-                style={{ background: BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length] }}
-              />
+              <span className="block h-[3px] w-full" style={{ background: stripe }} />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSelect(selected ? null : card.id);
+                  if (card.into) onOpen(card.into);
+                  else onSelect(selected ? null : card.id);
                 }}
                 className="notion-hover block w-full px-3 pt-2.5 pb-2 text-left"
+                title={card.into ? `Open ${card.title}` : undefined}
               >
-                <span className="block truncate text-[13.5px] font-semibold text-primary">
-                  {card.title}
+                <span className="flex items-center gap-1">
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-primary">
+                    {card.title}
+                  </span>
+                  {/* Somewhere to go, said quietly until you approach. */}
+                  {card.into && (
+                    <ChevronRight className="reveal size-3.5 shrink-0 text-tertiary" />
+                  )}
                 </span>
                 <span className="mt-0.5 flex items-center gap-1.5">
-                  <span className="inline-block rounded-sm bg-[rgb(var(--ink)/0.06)] px-1.5 py-px font-mono text-[10px] text-tertiary">
-                    {card.path}
-                  </span>
-                  {!detailed && card.inside > 0 && (
+                  {card.path && (
+                    <span className="inline-block max-w-full truncate rounded-sm bg-[rgb(var(--ink)/0.06)] px-1.5 py-px font-mono text-[10px] text-tertiary">
+                      {card.path}
+                    </span>
+                  )}
+                  {!detailed && !card.note && card.inside > 0 && (
                     <span className="text-[10px] text-tertiary">
                       {card.inside} {card.inside === 1 ? "thing" : "things"} it does
                     </span>
                   )}
                 </span>
+                {card.note && (
+                  <span className="mt-1 block truncate text-[11px] text-tertiary">
+                    {card.note}
+                  </span>
+                )}
               </button>
 
-              {/* A page with nothing behind it gets a sketch instead of an
-                  empty box — the same trick their site maps use to keep a
-                  card from looking unfinished. */}
-              {detailed && card.blocks.length === 0 && (
+              {/* A card with nothing listed gets a sketch instead of an empty
+                  box — the same trick a drawn site map uses to keep a card
+                  from looking unfinished. */}
+              {detailed && card.sketch && card.blocks.length === 0 && (
                 <div className="px-3 pb-3">
                   <div
                     className="flex h-[52px] flex-col justify-center gap-1 rounded-sm px-2"
-                    style={{
-                      background: `color-mix(in srgb, ${
-                        BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length]
-                      } 12%, transparent)`,
-                    }}
+                    style={{ background: `color-mix(in srgb, ${stripe} 12%, transparent)` }}
                   >
                     {[62, 90, 44].map((w, i) => (
                       <span
@@ -371,9 +405,7 @@ export function SitemapCanvas({
                         className="block h-[5px] rounded-full"
                         style={{
                           width: `${w}%`,
-                          background: `color-mix(in srgb, ${
-                            BRANCH_COLOURS[card.branch % BRANCH_COLOURS.length]
-                          } 45%, transparent)`,
+                          background: `color-mix(in srgb, ${stripe} 45%, transparent)`,
                         }}
                       />
                     ))}
@@ -391,7 +423,8 @@ export function SitemapCanvas({
                         key={block.id}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onSelect(on ? null : block.id);
+                          if (block.into) onOpen(block.into);
+                          else onSelect(on ? null : block.id);
                         }}
                         className={cn(
                           "flex h-[21px] w-full items-center rounded-xs px-1.5 text-left",
@@ -421,26 +454,28 @@ export function SitemapCanvas({
         })}
       </div>
 
-      {/* Structure on its own, or with what each page does inside it. */}
-      <div className="absolute top-3 right-3 flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
-        {[
-          { on: false, label: "Structure" },
-          { on: true, label: "What's inside" },
-        ].map((choice) => (
-          <button
-            key={choice.label}
-            onClick={() => onDetailed(choice.on)}
-            className={cn(
-              "h-7 rounded-sm px-2 text-[12.5px] transition-[background,color] duration-[20ms]",
-              detailed === choice.on
-                ? "bg-active font-medium text-primary"
-                : "text-secondary hover:bg-hover",
-            )}
-          >
-            {choice.label}
-          </button>
-        ))}
-      </div>
+      {/* Structure on its own, or with what's inside each card. */}
+      {sitemap.collapsible && (
+        <div className="absolute top-3 right-3 flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
+          {[
+            { on: false, label: "Structure" },
+            { on: true, label: "What's inside" },
+          ].map((choice) => (
+            <button
+              key={choice.label}
+              onClick={() => onDetailed(choice.on)}
+              className={cn(
+                "h-7 rounded-sm px-2 text-[12.5px] transition-[background,color] duration-[20ms]",
+                detailed === choice.on
+                  ? "bg-active font-medium text-primary"
+                  : "text-secondary hover:bg-hover",
+              )}
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
         <IconButton size="sm" onClick={() => zoomBy(1 / 1.2)} aria-label="Zoom out">

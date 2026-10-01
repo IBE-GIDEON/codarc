@@ -15,10 +15,17 @@ import type { Offsets } from "@/lib/share";
 import { rememberMap } from "@/lib/recent";
 import { setSidebarOpen, useSidebarOpen } from "@/components/workspace/sidebar-state";
 import { SitemapCanvas } from "@/components/workspace/sitemap-canvas";
-import { buildSitemap } from "@/lib/sitemap";
-import { groupIntoFeatures, type Feature } from "@/lib/features";
+import {
+  APP_LEVEL,
+  areasOf,
+  buildLevel,
+  hasParts,
+  partOf,
+  type Level,
+} from "@/lib/sitemap";
 import { Logo } from "@/components/logo";
 import { Button, IconButton } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 type Result =
   | { key: string; phase: "error"; error: string; hint: string }
@@ -164,6 +171,29 @@ function SharedBanner({ shared }: { shared: SharedContext }) {
   );
 }
 
+/** Where you are, as a line of names you can click back along. */
+function trail(map: RepoMap, level: Level): { label: string; level: Level }[] {
+  const home = { label: map.repo, level: APP_LEVEL };
+  const areas = areasOf(map);
+
+  if (level.at === "area") {
+    const area = areas.find((a) => a.key === level.key);
+    return [home, { label: area?.title ?? "This part", level }];
+  }
+  if (level.at === "page") {
+    const page = map.nodes.find((n) => n.id === level.id);
+    const area = partOf(map, level.id);
+    return [
+      home,
+      ...(area
+        ? [{ label: area.title, level: { at: "area", key: area.key } as Level }]
+        : []),
+      { label: page?.title ?? "This page", level },
+    ];
+  }
+  return [home];
+}
+
 export function Workspace({
   owner,
   repo,
@@ -195,20 +225,16 @@ export function Workspace({
   const key = `${owner}/${repo}#${nonce}`;
   /*
    * Three depths, in the order anyone asks about their own app:
-   *   nothing chosen  — what it's made of
-   *   a part chosen   — how that part works
-   *   a box chosen    — the piece itself, and its file
-   * Dumping the whole codebase on one canvas answers the third question to
-   * someone who hasn't asked the first.
+   *   the app    what did I build
+   *   a part     what's in this bit of it
+   *   a page     what happens when somebody uses it
+   * and then the piece itself, in the panel on the right. Dumping the whole
+   * codebase onto one canvas answers the last question to someone who hasn't
+   * asked the first.
    */
-  const [inside, setInside] = React.useState<Feature | null>(null);
-  // Cards list what each page does, or collapse to plain structure.
+  const [level, setLevel] = React.useState<Level>(APP_LEVEL);
+  // Cards list what's inside them, or collapse to plain structure.
   const [detailed, setDetailed] = React.useState(true);
-
-  // Stepping into or out of a part re-frames the canvas.
-  React.useEffect(() => {
-    canvasRef.current?.fitAll();
-  }, [inside]);
 
   // ⌘\ (Ctrl+\ on Windows) hides and shows the sidebar, the way it does in
   // Notion. Ignored while someone is typing, so it can't eat a keystroke.
@@ -303,48 +329,45 @@ export function Workspace({
   const layoutKey = `codarc-layout:${owner}/${repo}`;
   const selected = map.nodes.find((n) => n.id === selectedId) ?? null;
   const matches = matchNodes(map.nodes, query);
-  const features = groupIntoFeatures(map);
-  const sitemap = buildSitemap(map, detailed);
+  const sitemap = buildLevel(map, level, detailed);
+  const crumbs = trail(map, level);
 
-  /*
-   * What's on screen right now. Inside a part of the app, that part's own
-   * pieces — plus whatever they reach into elsewhere, so a thread is never
-   * cut off at the edge of its group.
-   */
-  const shown = (() => {
-    if (!inside || query) return map;
-
-    // This part's own pieces, plus whatever they touch directly — worked out
-    // before anything is added, so one step out doesn't turn into a flood.
-    const own = new Set(inside.nodeIds);
-    const keep = new Set(own);
-    for (const e of map.edges) {
-      if (own.has(e.from)) keep.add(e.to);
-      if (own.has(e.to)) keep.add(e.from);
-    }
-
-    const nodes = map.nodes.filter((n) => keep.has(n.id));
-    const kinds = new Set(nodes.map((n) => n.kind));
-    return {
-      ...map,
-      nodes,
-      edges: map.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
-      // No empty bands: a label with nothing under it is a question mark.
-      layers: map.layers?.filter((band) => kinds.has(band.kind)) ?? [],
-    };
-  })();
+  /** Step into a part, or into a page. The drawing stays; what's on it changes. */
+  function open(next: Level) {
+    setLevel(next);
+    setSelectedId(null);
+  }
 
   function pick(id: string) {
     setSelectedId(id);
     canvasRef.current?.focusNode(id);
+
+    // Bring the picture to wherever that piece lives, so the panel and the
+    // map are never telling two different stories.
+    const node = map.nodes.find((n) => n.id === id);
+    if (!node) return;
+    if (node.kind === "screen") {
+      setLevel({ at: "page", id });
+      return;
+    }
+    const pages = new Set(
+      map.nodes.filter((n) => n.kind === "screen").map((n) => n.id),
+    );
+    const host = map.edges.find((e) => e.to === id && pages.has(e.from));
+    if (host) setLevel({ at: "page", id: host.from });
   }
 
   // Something worth pointing at during the tour: prefer a door, since that's
   // the kind people recognise fastest.
   const demoNode =
     map.nodes.find((n) => n.kind === "door") ?? map.nodes[0] ?? null;
+  // A page with something behind it tells the story better than a bare one.
+  const demoPage =
+    map.nodes.find(
+      (n) => n.kind === "screen" && map.edges.some((e) => e.from === n.id),
+    ) ?? map.nodes.find((n) => n.kind === "screen") ?? null;
 
-  const steps: TourStep[] = [
+  const allSteps: TourStep[] = [
     {
       id: "welcome",
       placement: "center",
@@ -353,23 +376,39 @@ export function Workspace({
       before: () => {
         setQuery("");
         setSelectedId(null);
-        setInside(null);
+        setLevel(APP_LEVEL);
       },
     },
     {
       id: "parts",
-      target: "parts",
-      placement: "right",
+      placement: "center",
       title: "What your app is made of",
-      body: "Every card is one part of the app you built — the areas you'd name yourself. Click one to go inside it. Nothing deeper is shown until you ask for it.",
-      before: () => setInside(null),
+      body: hasParts(map)
+        ? "Every card is one part of the app you built, and the lines inside it are the pages in that part. Nothing deeper is shown until you ask for it."
+        : "Every card is one page you built, and the lines inside it are the things that page sets off. Nothing deeper is shown until you ask for it.",
+      before: () => {
+        setSelectedId(null);
+        setLevel(APP_LEVEL);
+      },
     },
     {
       id: "inside",
       placement: "center",
-      title: "Inside a part",
-      body: "This is one part, read from top to bottom: the pages people open, what that sets off, and the work behind it. The way back out is in the top left.",
-      before: () => setInside(features[0] ?? null),
+      title: "Step inside a part",
+      body: "Click a part and you get its pages, drawn the way they sit inside one another. The way back out is always in the top left.",
+      before: () => {
+        const area = areasOf(map)[0];
+        if (area) setLevel({ at: "area", key: area.key });
+      },
+    },
+    {
+      id: "page",
+      placement: "center",
+      title: "Then one page at a time",
+      body: "Click a page and you see what happens on it — what it sets off, what it keeps, and where it can take somebody next. This is where you describe a change.",
+      before: () => {
+        if (demoPage) setLevel({ at: "page", id: demoPage.id });
+      },
     },
     {
       id: "colours",
@@ -387,12 +426,11 @@ export function Workspace({
     },
     {
       id: "node",
-      target: "node",
-      placement: "right",
-      title: "Click a box to open it",
-      body: "Clicking any box selects it and lights up everything it's connected to, so you can see what depends on what.",
+      placement: "center",
+      title: "Click a card to open it",
+      body: "A card with nothing under it opens in the panel on the right instead — what it is, the file it lives in, and what leans on it.",
       before: () => {
-        if (demoNode) pick(demoNode.id);
+        if (demoNode) setSelectedId(demoNode.id);
       },
     },
     {
@@ -452,6 +490,9 @@ export function Workspace({
     },
   ];
 
+  // A small app has no parts to step into, so don't promise one.
+  const steps = allSteps.filter((s) => s.id !== "inside" || hasParts(map));
+
   function endTour() {
     setTour(false);
     setSelectedId(null);
@@ -493,26 +534,45 @@ export function Workspace({
           )}
 
           {/* Where you are, and the way back out. */}
-          {inside && (
-            <div className="flex items-center gap-1 rounded-lg bg-raised/90 py-1 pr-2.5 pl-1 shadow-card backdrop-blur-sm">
-              <button
-                onClick={() => {
-                  setInside(null);
-                  setSelectedId(null);
-                }}
-                className="notion-hover flex h-7 items-center gap-1.5 px-2 text-[12.5px] text-secondary hover:text-primary"
-              >
-                <ArrowLeft className="size-3.5" /> {map.repo}
-              </button>
-              <span className="text-ghost">/</span>
-              <span className="text-[12.5px] font-medium text-primary">{inside.name}</span>
+          {!query && (
+            <div className="flex items-center gap-0.5 rounded-lg bg-raised/90 p-1 shadow-card backdrop-blur-sm">
+              {sitemap.up && (
+                <IconButton
+                  size="sm"
+                  onClick={() => open(sitemap.up!)}
+                  aria-label="Back out one step"
+                  title="Back out one step"
+                >
+                  <ArrowLeft className="size-3.5" />
+                </IconButton>
+              )}
+              {crumbs.map((crumb, i) => {
+                const last = i === crumbs.length - 1;
+                return (
+                  <React.Fragment key={`${crumb.label}:${i}`}>
+                    {i > 0 && <span className="px-0.5 text-ghost">/</span>}
+                    <button
+                      onClick={() => !last && open(crumb.level)}
+                      className={cn(
+                        "h-7 max-w-[180px] truncate rounded-sm px-1.5 text-[12.5px]",
+                        last
+                          ? "font-medium text-primary"
+                          : "text-secondary hover:bg-hover hover:text-primary",
+                      )}
+                    >
+                      {crumb.label}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {inside && !selectedId && !query && (
-          <p className="pointer-events-none absolute top-[52px] left-3 z-10 text-[12.5px] text-tertiary">
-            Point at a box to see what it touches. Click it to follow the whole path.
+        {/* What this depth is for, said once, in the corner. */}
+        {!query && !selectedId && (
+          <p className="pointer-events-none absolute top-[54px] left-3 z-10 text-[12.5px] text-tertiary">
+            {sitemap.hint}
           </p>
         )}
         {map.nodes.length === 0 ? (
@@ -533,21 +593,22 @@ export function Workspace({
               </Link>
             </div>
           </div>
-        ) : !inside && !query ? (
-          /* The whole app as one tree: root, parts, pages, what they use. */
+        ) : !query ? (
+          /* One drawing, at whichever depth you're standing on. */
           <SitemapCanvas
             sitemap={sitemap}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            onOpen={open}
             matches={matches}
             detailed={detailed}
             onDetailed={setDetailed}
           />
         ) : (
           <Canvas
-            key={`${owner}/${repo}:${inside?.name ?? "search"}`}
+            key={`${owner}/${repo}:search`}
             ref={canvasRef}
-            map={shown}
+            map={map}
             selectedId={selectedId}
             onSelect={setSelectedId}
             storageKey={shared?.layoutKey ?? layoutKey}

@@ -52,6 +52,7 @@ names become sentences; put new copy through it rather than inlining jargon.
 `src/lib/graph.ts` — RepoMap / GraphNode types shared by analyzer and canvas
 `src/lib/github.ts` — read-only GitHub fetching, typed errors with plain hints
 `src/lib/analyze.ts` — the engine: parse, build the graph, lay it out
+`src/lib/sitemap.ts` — the picture: the app at three depths (app, part, page)
 `src/lib/change.ts` — Claude Opus 5 drafts an edit; refuses rather than half-applies
 `src/lib/diff.ts` — minimal line differ for the preview
 `src/lib/humanize.ts` — code-shaped names to plain English
