@@ -371,6 +371,11 @@ export function Workspace({
   const matches = matchNodes(map.nodes, query);
   const sitemap = buildLevel(map, level, detailed);
   const crumbs = trail(map, level);
+  // Each depth remembers its own arrangement — moving a card inside one part
+  // shouldn't shuffle the view you had of another.
+  const cardsKey = `codarc-cards:${owner}/${repo}:${level.at}:${
+    level.at === "area" ? level.key : level.at === "page" ? level.id : ""
+  }`;
 
   /** Step into a part, or into a page. The drawing stays; what's on it changes. */
   function open(next: Level) {
@@ -636,10 +641,12 @@ export function Workspace({
         ) : !query ? (
           /* One drawing, at whichever depth you're standing on. */
           <SitemapCanvas
+            key={cardsKey}
             sitemap={sitemap}
             selectedId={selectedId}
             onSelect={setSelectedId}
             onOpen={open}
+            storageKey={cardsKey}
             matches={matches}
             detailed={detailed}
             onDetailed={setDetailed}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight, Maximize2, Minus, Plus } from "lucide-react";
+import { ChevronRight, Maximize2, Minus, Plus, Undo2 } from "lucide-react";
 import type { NodeKind } from "@/lib/graph";
 import { CARD_W, type Card, type Level, type Sitemap } from "@/lib/sitemap";
 import { IconButton } from "@/components/ui/button";
@@ -16,6 +16,19 @@ import { cn } from "@/lib/cn";
  * every coloured row, opens the piece itself in the panel on the right.
  */
 
+/** How far somebody has dragged a card from where we put it. */
+type Offset = { dx: number; dy: number };
+
+/** Their arrangement from last time, if they made one. */
+function savedOffsets(key: string): Record<string, Offset> {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? (JSON.parse(saved) as Record<string, Offset>) : {};
+  } catch {
+    return {};
+  }
+}
+
 /** A row's tint, by what kind of thing it is. */
 const ROW_STYLE: Record<NodeKind, { bg: string; text: string }> = {
   screen: { bg: "var(--c-green-bg)", text: "var(--c-green)" },
@@ -25,10 +38,11 @@ const ROW_STYLE: Record<NodeKind, { bg: string; text: string }> = {
 };
 
 /**
- * Journeys get their own colours so two crossing lines can be told apart —
- * the one thing a black-on-black tangle can never do.
+ * A journey is drawn in one quiet colour, dashed, and only for the card you
+ * clicked. Three bright colours arcing over the cards read as a wiring
+ * diagram laid on top of the map, and the map is the point.
  */
-const JOURNEY_COLOURS = ["var(--brand-purple)", "var(--c-pink)", "var(--brand-blue)"];
+const JOURNEY_COLOUR = "var(--accent)";
 
 /**
  * A colour per part of the app. Grey cards on a grey canvas all weigh the
@@ -97,6 +111,7 @@ export function SitemapCanvas({
   matches,
   detailed,
   onDetailed,
+  storageKey,
 }: {
   sitemap: Sitemap;
   selectedId: string | null;
@@ -107,21 +122,63 @@ export function SitemapCanvas({
   /** Cards list what's inside them, or collapse to plain structure. */
   detailed: boolean;
   onDetailed: (next: boolean) => void;
+  /** Where this depth's own arrangement is kept. */
+  storageKey: string;
 }) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [view, setView] = React.useState({ x: 0, y: 0, k: 1 });
   const [ready, setReady] = React.useState(false);
   const [smooth, setSmooth] = React.useState(false);
-  const [hovered, setHovered] = React.useState<string | null>(null);
 
-  const byId = React.useMemo(
-    () => new Map(sitemap.cards.map((c) => [c.id, c])),
-    [sitemap.cards],
+  /*
+   * Where somebody has dragged each card. What we work out is a starting
+   * point, not an opinion — people picture their own app in their own
+   * shape, and once they've arranged it that way it's theirs to keep.
+   */
+  const [offsets, setOffsets] = React.useState<Record<string, Offset>>(() =>
+    savedOffsets(storageKey),
+  );
+
+  // Written once the hand stops moving rather than on every frame of a
+  // drag, which would be sixty writes a second to save one nudge.
+  const loaded = React.useRef(false);
+  React.useEffect(() => {
+    if (!loaded.current) {
+      loaded.current = true;
+      return;
+    }
+    const save = setTimeout(() => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(offsets));
+      } catch {}
+    }, 250);
+    return () => clearTimeout(save);
+  }, [offsets, storageKey]);
+
+  /** The cards where they actually sit, nudges included. */
+  const cards = React.useMemo(
+    () =>
+      sitemap.cards.map((c) => {
+        const moved = offsets[c.id];
+        return moved ? { ...c, x: c.x + moved.dx, y: c.y + moved.dy } : c;
+      }),
+    [sitemap.cards, offsets],
+  );
+
+  const byId = React.useMemo(() => new Map(cards.map((c) => [c.id, c])), [cards]);
+
+  /** How much room it all takes up now, which dragging changes. */
+  const bounds = React.useMemo(
+    () => ({
+      width: Math.max(1, ...cards.map((c) => c.x + CARD_W)),
+      height: Math.max(1, ...cards.map((c) => c.y + c.h)),
+    }),
+    [cards],
   );
 
   const fit = React.useCallback(() => {
     const host = hostRef.current;
-    if (!host || !sitemap.cards.length) return;
+    if (!host || !cards.length) return;
     const pad = 56;
     const { width, height } = host.getBoundingClientRect();
     /*
@@ -134,28 +191,28 @@ export function SitemapCanvas({
      * at the edge is a card nobody knows is there. Running off the bottom
      * is fine — everybody scrolls down.
      */
-    const across = (width - pad * 2) / sitemap.width;
-    const down = (height - pad * 2) / sitemap.height;
+    const across = (width - pad * 2) / bounds.width;
+    const down = (height - pad * 2) / bounds.height;
     const floor = Math.min(0.85, Math.max(0.45, across));
     const scale = Math.max(floor, Math.min(across, down, 1.15));
-    const fitsWide = sitemap.width * scale <= width - pad * 2;
-    const fitsTall = sitemap.height * scale <= height - pad * 2;
+    const fitsWide = bounds.width * scale <= width - pad * 2;
+    const fitsTall = bounds.height * scale <= height - pad * 2;
     // When it's wider than the window, open on the top of the tree rather
     // than the left edge — otherwise the first card you'd look for is the
     // one off screen.
-    const top = sitemap.cards.reduce(
+    const top = cards.reduce(
       (best, c) => (!best || c.y < best.y ? c : best),
       null as Card | null,
     );
-    const anchor = top ? top.x + CARD_W / 2 : sitemap.width / 2;
+    const anchor = top ? top.x + CARD_W / 2 : bounds.width / 2;
 
     setView({
       k: scale,
-      x: fitsWide ? width / 2 - (sitemap.width / 2) * scale : width / 2 - anchor * scale,
-      y: fitsTall ? Math.max(pad, height / 2 - (sitemap.height / 2) * scale) : pad,
+      x: fitsWide ? width / 2 - (bounds.width / 2) * scale : width / 2 - anchor * scale,
+      y: fitsTall ? Math.max(pad, height / 2 - (bounds.height / 2) * scale) : pad,
     });
     setReady(true);
-  }, [sitemap]);
+  }, [cards, bounds]);
 
   const fitted = React.useRef(false);
   React.useEffect(() => {
@@ -218,8 +275,56 @@ export function SitemapCanvas({
   }, []);
 
   const pan = React.useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const drag = React.useRef<{
+    id: string;
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+    moved: boolean;
+  } | null>(null);
+  /** True for exactly one click: the one that ends a drag. */
+  const dragged = React.useRef(false);
   const [grabbing, setGrabbing] = React.useState(false);
 
+  /*
+   * A drag is followed on the window, not on the card.
+   *
+   * A pointer that leaves the card has to keep moving it, and capturing the
+   * pointer instead would send the click that follows to the card rather
+   * than to the button inside it — so a plain click would stop opening
+   * anything, which is the thing people do most.
+   */
+  React.useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const d = drag.current;
+      if (!d) return;
+      const mx = e.clientX - d.x;
+      const my = e.clientY - d.y;
+      // A few pixels of wobble is somebody clicking, not moving.
+      if (!d.moved && Math.abs(mx) < 4 && Math.abs(my) < 4) return;
+      d.moved = true;
+      setOffsets((prev) => ({
+        ...prev,
+        [d.id]: { dx: d.dx + mx / view.k, dy: d.dy + my / view.k },
+      }));
+    };
+    const up = () => {
+      const d = drag.current;
+      drag.current = null;
+      // The click that ends a drag must not also open the card.
+      if (d?.moved) dragged.current = true;
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, [view.k]);
   const zoomBy = (factor: number) => {
     const host = hostRef.current;
     if (!host) return;
@@ -300,7 +405,7 @@ export function SitemapCanvas({
               markerHeight="7"
               orient="auto-start-reverse"
             >
-              <path d="M0 1 L7 4 L0 7 z" fill="var(--brand-purple)" />
+              <path d="M0 1 L7 4 L0 7 z" fill={JOURNEY_COLOUR} />
             </marker>
           </defs>
 
@@ -321,32 +426,31 @@ export function SitemapCanvas({
             );
           })}
 
-          {/* The links people can click, curving across the structure. */}
-          {sitemap.journeys.map((j, i) => {
+          {/* Where a page can take you, drawn only for the card you chose. */}
+          {sitemap.journeys.map((j) => {
             const from = byId.get(j.from);
             const to = byId.get(j.to);
             if (!from || !to) return null;
-            const mine =
-              hovered === j.from || hovered === j.to || litCard === j.from || litCard === j.to;
-            // Drawn only for the card you're on. Every link at once is a
-            // bird's nest over the structure, and the structure is the point.
-            if (!mine) return null;
-            const colour = JOURNEY_COLOURS[i % JOURNEY_COLOURS.length];
+            // Only on a click, never on the way past: lines appearing and
+            // vanishing under a moving mouse is the most distracting thing
+            // a quiet map can do.
+            if (litCard !== j.from && litCard !== j.to) return null;
             return (
               <path
                 key={`j:${j.from}->${j.to}`}
                 d={journeyPath(from, to)}
                 fill="none"
-                stroke={colour}
-                strokeWidth={2}
+                stroke={JOURNEY_COLOUR}
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                strokeOpacity={0.7}
                 markerEnd="url(#journey-head)"
-                style={{ transition: "opacity 100ms ease-out" }}
               />
             );
           })}
         </svg>
 
-        {sitemap.cards.map((card) => {
+        {cards.map((card) => {
           const selected = selectedId === card.id;
           const hit = matches?.has(card.id) ?? false;
           const dim = matches && !hit && !card.blocks.some((b) => matches.has(b.id));
@@ -355,11 +459,22 @@ export function SitemapCanvas({
           return (
             <div
               key={card.id}
-              onPointerDown={(e) => e.stopPropagation()}
-              onMouseEnter={() => setHovered(card.id)}
-              onMouseLeave={() => setHovered((h) => (h === card.id ? null : h))}
+              onPointerDown={(e) => {
+                // The canvas must not pan while a card is being moved.
+                e.stopPropagation();
+                if (e.button !== 0) return;
+                const from = offsets[card.id] ?? { dx: 0, dy: 0 };
+                drag.current = {
+                  id: card.id,
+                  x: e.clientX,
+                  y: e.clientY,
+                  dx: from.dx,
+                  dy: from.dy,
+                  moved: false,
+                };
+              }}
               className={cn(
-                "reveal-parent absolute overflow-hidden rounded-lg bg-raised transition-[box-shadow,opacity] duration-150",
+                "reveal-parent absolute overflow-hidden rounded-lg bg-raised select-none transition-[box-shadow,opacity] duration-150",
                 selected
                   ? "shadow-[0_0_0_2px_var(--accent),var(--shadow-popover)]"
                   : hit
@@ -369,12 +484,16 @@ export function SitemapCanvas({
                       "shadow-[0_0_0_1px_var(--border-strong),var(--shadow-card)]",
                 dim && "opacity-30",
               )}
-              style={{ left: card.x, top: card.y, width: CARD_W }}
+              style={{ left: card.x, top: card.y, width: CARD_W, cursor: "grab" }}
             >
               <span className="block h-[3px] w-full" style={{ background: stripe }} />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (dragged.current) {
+                    dragged.current = false;
+                    return;
+                  }
                   if (card.into) onOpen(card.into);
                   else onSelect(selected ? null : card.id);
                 }}
@@ -419,6 +538,10 @@ export function SitemapCanvas({
                         key={block.id}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (dragged.current) {
+                            dragged.current = false;
+                            return;
+                          }
                           if (block.into) onOpen(block.into);
                           else onSelect(on ? null : block.id);
                         }}
@@ -474,6 +597,17 @@ export function SitemapCanvas({
       )}
 
       <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg bg-raised/90 p-0.5 shadow-card backdrop-blur-sm">
+        {/* Nobody should be able to wreck their own map with no way back. */}
+        {Object.keys(offsets).length > 0 && (
+          <IconButton
+            size="sm"
+            onClick={() => setOffsets({})}
+            aria-label="Put the cards back where they were"
+            title="Put the cards back where they were"
+          >
+            <Undo2 className="size-3.5" />
+          </IconButton>
+        )}
         <IconButton size="sm" onClick={() => zoomBy(1 / 1.2)} aria-label="Zoom out">
           <Minus className="size-3.5" />
         </IconButton>
