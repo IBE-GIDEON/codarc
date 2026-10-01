@@ -8,6 +8,7 @@ import { currentUser } from "@/lib/session";
 import { accountsReachable, entitlement } from "@/lib/accounts";
 import { isDbConfigured } from "@/lib/db";
 import { decodeShare } from "@/lib/share";
+import { paymentsConfigured } from "@/lib/payments";
 import { TRIAL_COOKIE, lookSpentOn, mayLook, spendLook, trialCookie } from "@/lib/trial";
 import { allow, clientKey } from "@/lib/rate-limit";
 
@@ -47,6 +48,15 @@ async function gate(key: string, share: string | null): Promise<Gate> {
       if (shared === key) return { ok: true, spend: false };
     }
   }
+
+  /*
+   * The gate sleeps until there's something to buy. Turning somebody away
+   * towards a checkout that answers "payments aren't switched on yet" loses
+   * a visitor and gains nothing — and it would burn their free look on the
+   * one day they couldn't have paid anyway. It wakes by itself the moment
+   * the payment keys are set.
+   */
+  if (!paymentsConfigured()) return { ok: true, spend: false };
 
   // With no database we can't tell who's paying, and locking paying people
   // out of their own app is worse than letting a few maps through.
