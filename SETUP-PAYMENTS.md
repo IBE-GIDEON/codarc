@@ -29,8 +29,8 @@ Lemon Squeezy → **Products** → **New product**, twice:
 
 | Name | Pricing | Price |
 |---|---|---|
-| Codarc Solo | Subscription, every **1 month** | $29 |
-| Codarc Studio | Subscription, every **1 month** | $79 |
+| Codarc Solo | Subscription, every **1 month** | $12 |
+| Codarc Studio | Subscription, every **1 month** | $29 |
 
 Click **Publish** on both.
 
@@ -62,8 +62,8 @@ unlocked with your owner key). It lists your store and plans with their IDs.
 | From that page | Into Vercel as |
 |---|---|
 | the store `id` | `LEMONSQUEEZY_STORE_ID` |
-| the $29 / month variant `id` | `LEMONSQUEEZY_SOLO_VARIANT_ID` |
-| the $79 / month variant `id` | `LEMONSQUEEZY_STUDIO_VARIANT_ID` |
+| the $12 / month variant `id` | `LEMONSQUEEZY_SOLO_VARIANT_ID` |
+| the $29 / month variant `id` | `LEMONSQUEEZY_STUDIO_VARIANT_ID` |
 
 Redeploy again.
 

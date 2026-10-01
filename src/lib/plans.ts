@@ -37,7 +37,7 @@ export const PLANS: Plan[] = [
   {
     id: "solo",
     name: "Solo",
-    price: 29,
+    price: 12,
     tagline: "For the founder who built it on their own.",
     features: [
       "3 projects",
@@ -52,7 +52,7 @@ export const PLANS: Plan[] = [
   {
     id: "studio",
     name: "Studio",
-    price: 79,
+    price: 29,
     tagline: "For when someone else has to understand it too.",
     features: [
       "As many projects as you want",

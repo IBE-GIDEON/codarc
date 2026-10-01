@@ -56,8 +56,8 @@ export function Hero() {
           </Reveal>
 
           <Reveal delay={230} as="p" className="mt-4 text-[13px] text-tertiary">
-            Free to look at any app. You don&apos;t need to know how to code —
-            you do need to own the app you&apos;re changing.
+            Your first app is drawn free. You don&apos;t need to know how to
+            code — you do need to own the app you&apos;re changing.
           </Reveal>
         </div>
 

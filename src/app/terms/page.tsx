@@ -36,7 +36,7 @@ export default function Terms() {
         {
           heading: "Paying",
           body: [
-            "Plans are billed monthly in advance. There is no free tier.",
+            "Plans are billed monthly in advance. There is no free tier beyond a single map, which anyone may draw once without an account.",
             "Cancel any time and you keep access until the end of the period you've paid for.",
             "Ask for a refund within thirty days of your first payment and you'll get one, no questions.",
           ],

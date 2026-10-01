@@ -26,7 +26,6 @@ const HEAD_H = 46;
 const NOTE_H = 17;
 const ROW_H = 23;
 const CARD_PAD = 10;
-const SKETCH_H = 64;
 const GAP_X = 52;
 const GAP_Y = 92;
 const MAX_ROWS = 6;
@@ -78,8 +77,6 @@ export type Card = {
   inside: number;
   /** Clicking the card goes here. Without it, the card is simply opened. */
   into?: Level;
-  /** A card with nothing listed gets a sketch rather than an empty box. */
-  sketch?: boolean;
   /**
    * Which part of the app this card belongs to. One colour per part, kept
    * the same at every depth, so stepping inside never loses your place.
@@ -152,11 +149,10 @@ const WHAT_IT_IS: Record<NodeKind, string> = {
 
 type Seed = Omit<Card, "depth" | "x" | "y" | "h"> & { parent: string | null };
 
-function heightOf(seed: Seed, detailed: boolean): number {
+function heightOf(seed: Seed): number {
   let h = HEAD_H;
   if (seed.note) h += NOTE_H;
   if (seed.blocks.length) h += seed.blocks.length * ROW_H + CARD_PAD;
-  else if (detailed && seed.sketch) h += SKETCH_H;
   return h;
 }
 
@@ -167,13 +163,13 @@ function heightOf(seed: Seed, detailed: boolean): number {
  * map open at 40%, where nothing can be read — so a long row of plain cards
  * wraps onto a second line, the way a shelf does.
  */
-function layout(seeds: Seed[], detailed: boolean) {
+function layout(seeds: Seed[]) {
   const cards: Card[] = seeds.map((seed) => ({
     ...seed,
     depth: 0,
     x: 0,
     y: 0,
-    h: heightOf(seed, detailed),
+    h: heightOf(seed),
   }));
   const byId = new Map(cards.map((c) => [c.id, c]));
   const parentById = new Map(seeds.map((s) => [s.id, s.parent]));
@@ -353,6 +349,21 @@ function piecesOf(map: RepoMap, nodeId: string, byId: Map<string, GraphNode>) {
 }
 
 /**
+ * What a card says when it has nothing to list.
+ *
+ * A coloured box with nothing in it reads as something that failed to load.
+ * Every card says something, in words: a page with no machinery behind it is
+ * a fact worth knowing — it's the kind you can change without breaking
+ * anything.
+ */
+function quietNote(map: RepoMap, page: GraphNode): string {
+  const out = map.edges.filter((e) => e.kind === "opens" && e.from === page.id).length;
+  if (out === 1) return "Takes you to one other page";
+  if (out) return `Takes you to ${out} other pages`;
+  return "Just the page — nothing runs behind it";
+}
+
+/**
  * A card per page, nested the way their addresses nest, each listing what
  * the page actually does. The same cards serve a small app's whole map and
  * one part of a big one.
@@ -377,11 +388,11 @@ function pageSeeds(
       path: tidy(page.code),
       node: page,
       kind: "screen" as NodeKind,
+      note: inside.length ? undefined : quietNote(map, page),
       blocks: shown.map((n) => ({ id: n.id, title: n.title, kind: n.kind })),
       more: detailed ? Math.max(0, inside.length - shown.length) : 0,
       inside: inside.length,
       into: { at: "page", id: page.id } as Level,
-      sketch: true,
       branch: branchOf(page),
       parent: (above && idByPath.get(above)) || null,
     };
@@ -421,7 +432,7 @@ function buildApp(map: RepoMap, detailed: boolean): Sitemap {
     const tree = pageSeeds(map, pages, branchOf, detailed);
     for (const seed of tree) if (!seed.parent) seed.parent = "app";
 
-    const laid = layout([...seeds, ...tree], detailed);
+    const laid = layout([...seeds, ...tree]);
     const structural = new Set(laid.branches.map((b) => `${b.from}->${b.to}`));
     const here = new Set(tree.map((s) => s.id));
     const links: Journey[] = [];
@@ -476,7 +487,6 @@ function buildApp(map: RepoMap, detailed: boolean): Sitemap {
       more: detailed ? Math.max(0, area.pages.length - shown.length) : 0,
       inside: area.pages.length,
       into: { at: "area", key: area.key },
-      sketch: true,
       branch: area.branch,
       parent: "app",
     });
@@ -502,7 +512,7 @@ function buildApp(map: RepoMap, detailed: boolean): Sitemap {
   const rest = singles.filter((s) => s.path !== "/");
 
   return {
-    ...layout([head, ...home, ...parts, ...rest], detailed),
+    ...layout([head, ...home, ...parts, ...rest]),
     journeys,
     title: name,
     hint: "Everything you built, in parts. Click a part to go inside it.",
@@ -538,7 +548,7 @@ function buildArea(map: RepoMap, key: string, detailed: boolean): Sitemap {
     });
   }
 
-  const laid = layout(seeds, detailed);
+  const laid = layout(seeds);
   const structural = new Set(laid.branches.map((b) => `${b.from}->${b.to}`));
   const here = new Set(seeds.map((s) => s.id));
   const journeys: Journey[] = [];
@@ -660,7 +670,7 @@ function buildPage(map: RepoMap, id: string, detailed: boolean): Sitemap {
   }
 
   return {
-    ...layout(seeds, detailed),
+    ...layout(seeds),
     journeys: [],
     title: page.title,
     hint: "What happens on this page. Click any card to change that part.",

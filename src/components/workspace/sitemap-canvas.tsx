@@ -181,6 +181,42 @@ export function SitemapCanvas({
     if (fitted.current) fit();
   }, [shape, fit]);
 
+  /*
+   * The map moves; the page doesn't.
+   *
+   * React attaches wheel handlers passively, so a handler written the usual
+   * way can't stop the browser doing its own thing — and ctrl-scroll or a
+   * trackpad pinch then zooms the whole website at the same time as the map,
+   * which pulls the layout apart. This one is attached by hand so it can say
+   * no first.
+   */
+  React.useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = host.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+
+      if (e.ctrlKey || e.metaKey) {
+        setView((v) => {
+          // A trackpad sends small deltas and a mouse wheel sends 120 at
+          // once; stepping by a curve keeps one notch from catapulting the
+          // map from readable to unreadable.
+          const k = Math.min(2.5, Math.max(0.2, v.k * Math.exp(-e.deltaY * 0.002)));
+          return { k, x: px - ((px - v.x) / v.k) * k, y: py - ((py - v.y) / v.k) * k };
+        });
+      } else {
+        setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+      }
+    };
+
+    host.addEventListener("wheel", onWheel, { passive: false });
+    return () => host.removeEventListener("wheel", onWheel);
+  }, []);
+
   const pan = React.useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   const [grabbing, setGrabbing] = React.useState(false);
 
@@ -233,23 +269,6 @@ export function SitemapCanvas({
       onPointerCancel={() => {
         pan.current = null;
         setGrabbing(false);
-      }}
-      onWheel={(e) => {
-        const host = hostRef.current;
-        if (!host) return;
-        const rect = host.getBoundingClientRect();
-        const px = e.clientX - rect.left;
-        const py = e.clientY - rect.top;
-        if (e.ctrlKey || e.metaKey) {
-          const next = Math.min(2.5, Math.max(0.2, view.k * (1 - e.deltaY * 0.01)));
-          setView((v) => ({
-            k: next,
-            x: px - ((px - v.x) / v.k) * next,
-            y: py - ((py - v.y) / v.k) * next,
-          }));
-        } else {
-          setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
-        }
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onSelect(null);
@@ -389,29 +408,6 @@ export function SitemapCanvas({
                   </span>
                 )}
               </button>
-
-              {/* A card with nothing listed gets a sketch instead of an empty
-                  box — the same trick a drawn site map uses to keep a card
-                  from looking unfinished. */}
-              {detailed && card.sketch && card.blocks.length === 0 && (
-                <div className="px-3 pb-3">
-                  <div
-                    className="flex h-[52px] flex-col justify-center gap-1 rounded-sm px-2"
-                    style={{ background: `color-mix(in srgb, ${stripe} 12%, transparent)` }}
-                  >
-                    {[62, 90, 44].map((w, i) => (
-                      <span
-                        key={i}
-                        className="block h-[5px] rounded-full"
-                        style={{
-                          width: `${w}%`,
-                          background: `color-mix(in srgb, ${stripe} 45%, transparent)`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {card.blocks.length > 0 && (
                 <div className="space-y-px px-2 pb-2">

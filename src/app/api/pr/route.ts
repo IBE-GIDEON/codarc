@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "You need a plan to send changes",
-        hint: "Looking at your map is free. Changing code is what the plan pays for.",
+        hint: "Reading your code and writing the change is what a plan pays for.",
         needsPlan: true,
       },
       { status: 402 },

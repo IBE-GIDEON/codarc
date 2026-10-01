@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 /**
  * What this visitor can do right now, in the order they meet the gates:
- * look (free) → sign in → have a plan → draft.
+ * one free look → a plan → sign in → draft.
  *
  * The UI asks rather than assuming, so it can say "choose a plan" instead of
  * letting someone type a request that was always going to be refused.

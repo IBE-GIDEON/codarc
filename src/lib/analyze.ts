@@ -893,7 +893,23 @@ export async function analyzeRepo(
       if (!qualifier) return;
       if (n.title.toLowerCase().includes(qualifier.toLowerCase())) return;
 
-      const pretty = qualifier.replace(/[_-]+/g, " ");
+      /*
+       * A folder called "[id]" is the computer's name for that page, not
+       * anybody else's — and "[id] Item Details" is worse than two pages
+       * both called "Item Details", which their addresses already tell
+       * apart. Anything that reads as a placeholder gets dropped.
+       */
+      const pretty = qualifier
+        .replace(/[[\]()]/g, "")
+        .replace(/^\.{3}/, "")
+        .replace(/^:/, "")
+        .replace(/[_-]+/g, " ")
+        .trim();
+      if (pretty.length < 3) return;
+      if (/^(id|ids|slug|uuid|key|param|params|item|value|index|page|new|edit)$/i.test(pretty)) {
+        return;
+      }
+
       const word = `${pretty.charAt(0).toUpperCase()}${pretty.slice(1)}`;
       // Pages read as names, so the qualifier goes in front: "Dashboard
       // Settings", not "Settings · Dashboard". Everything else keeps the dot.

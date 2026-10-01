@@ -205,24 +205,37 @@ export function Canvas({
     setGrabbing(false);
   }
 
-  function onWheel(e: React.WheelEvent) {
+  /*
+   * The map moves; the page doesn't. React attaches wheel handlers passively,
+   * so this one is attached by hand — otherwise ctrl-scroll and a trackpad
+   * pinch zoom the website and the map at once, and the layout comes apart.
+   */
+  React.useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const rect = host.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
 
-    if (e.ctrlKey || e.metaKey) {
-      const next = Math.min(2.5, Math.max(0.2, view.k * (1 - e.deltaY * 0.01)));
-      setView((v) => ({
-        k: next,
-        x: px - ((px - v.x) / v.k) * next,
-        y: py - ((py - v.y) / v.k) * next,
-      }));
-    } else {
-      setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
-    }
-  }
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = host.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+
+      if (e.ctrlKey || e.metaKey) {
+        setView((v) => {
+          // A trackpad sends small deltas and a mouse wheel sends 120 at
+          // once; stepping by a curve keeps one notch from catapulting the
+          // map from readable to unreadable.
+          const k = Math.min(2.5, Math.max(0.2, v.k * Math.exp(-e.deltaY * 0.002)));
+          return { k, x: px - ((px - v.x) / v.k) * k, y: py - ((py - v.y) / v.k) * k };
+        });
+      } else {
+        setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+      }
+    };
+
+    host.addEventListener('wheel', onWheel, { passive: false });
+    return () => host.removeEventListener('wheel', onWheel);
+  }, []);
 
   function zoomBy(factor: number) {
     const host = hostRef.current;
@@ -331,7 +344,6 @@ export function Canvas({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onPointerLeave={() => onWorldPointer?.(null)}
-      onWheel={onWheel}
       onClick={(e) => {
         if (e.target === e.currentTarget) onSelect(null);
       }}

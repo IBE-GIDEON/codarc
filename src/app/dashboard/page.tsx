@@ -160,7 +160,10 @@ export default async function Dashboard({
 
             {!planName && !paid && (
               <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-sm bg-c-gray-bg px-4 py-3 text-[14px] leading-6 text-primary">
-                <span>Looking at maps is free. Changing your app needs a plan.</span>
+                <span>
+                  Your free look covers one app. A plan draws all of them —
+                  and changes them.
+                </span>
                 <Link
                   href={`/choose?back=${encodeURIComponent("/dashboard")}`}
                   className="font-medium text-accent-text hover:underline"

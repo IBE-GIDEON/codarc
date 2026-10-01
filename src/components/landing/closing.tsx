@@ -24,8 +24,8 @@ export function Closing() {
               Point Codarc at your app.
             </h2>
             <p className="mx-auto mt-4 max-w-[46ch] text-[17px] leading-[1.55] text-secondary">
-              Sign up and connect it, and Codarc draws the whole thing. Or see
-              one drawn first — no account, nothing to install.
+              Sign up and connect it, and Codarc draws the whole thing. Or take
+              your free look first — one app, no account, nothing to install.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
@@ -44,7 +44,7 @@ export function Closing() {
             {/* The quietest way in, for anyone not ready to hand over a login. */}
             <div className="mt-12">
               <p className="mb-3 text-[13px] text-tertiary">
-                Or paste any public repository and look around
+                Or spend your free look on any public repository
               </p>
               <RepoInput />
             </div>

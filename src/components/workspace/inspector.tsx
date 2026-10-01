@@ -344,14 +344,14 @@ export function Inspector({
                 Sign in to change things.
               </p>
               <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
-                Looking is free and needs no account. Codarc only needs to know
-                who you are before it touches your code.
+                Codarc needs to know who you are before it touches your code,
+                and your GitHub account is how it knows.
               </p>
             </div>
           ) : !caps.hasPlan ? (
             <div className="rounded-sm bg-c-yellow-bg p-3">
               <p className="text-[12.5px] leading-[1.55] text-primary">
-                Looking is free. Changing needs a plan.
+                Changing your app needs a plan.
               </p>
               <p className="mt-1 text-[12.5px] leading-[1.5] text-secondary">
                 Codarc reads your real code and writes a real change, so from

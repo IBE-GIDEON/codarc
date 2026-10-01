@@ -12,7 +12,8 @@ import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = {
   title: "Pricing · Codarc",
-  description: "No free tier. On purpose. Solo $29, Studio $79.",
+  description:
+    "One free look at your own app, drawn in seconds. After that, a plan — and you can stop any time.",
 };
 
 /** null = not included · true = included · string = the specific limit. */
@@ -80,8 +81,8 @@ const COMPARISON: {
 
 const FAQ = [
   {
-    q: "Why is there no free plan?",
-    a: "Free plans mean queues, limits, and your app waiting behind somebody else's free ride. Codarc reads real code and writes real changes, which costs real money every single time. Charging from day one is how it stays fast for the people actually using it.",
+    q: "Is any of it free?",
+    a: "One look is. Codarc draws your first app at no cost and without an account, so you can see exactly what you'd be buying before you pay for anything. After that it's a plan: free tiers mean queues, limits, and your app waiting behind somebody else's free ride, and reading real code costs real money every single time.",
   },
   {
     q: "What counts as one change?",
@@ -153,12 +154,12 @@ export default function Pricing() {
           <Container className="relative">
             <div className="mx-auto max-w-[620px] text-center">
               <h1 className="text-[40px] leading-[1.1] font-bold tracking-[-0.03em] text-primary md:text-[52px]">
-                No free tier. On purpose.
+                One free look. Then it&apos;s a plan.
               </h1>
               <p className="mx-auto mt-4 max-w-[48ch] text-[17px] leading-[1.6] text-secondary">
                 Codarc reads real code and writes real changes, so it costs real
-                money to run. Looking at your map is free. Everything after that
-                is what you&apos;re paying for.
+                money to run. Your first app is drawn free, no account needed.
+                Everything after that is what you&apos;re paying for.
               </p>
             </div>
 
@@ -319,8 +320,8 @@ export default function Pricing() {
 
               <div className="mt-14 rounded-xl bg-sunken p-6 text-center">
                 <p className="text-[15px] leading-[1.6] text-primary">
-                  Still not sure? Map a repository first — that part costs
-                  nothing and takes about five seconds.
+                  Still not sure? Take your free look first — one app, drawn
+                  in about five seconds, no account.
                 </p>
                 <Link href="/#start" className="mt-4 inline-block">
                   <Button variant="primary" size="lg" className="h-10 px-4">

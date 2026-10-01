@@ -69,6 +69,7 @@ export default async function SharedMapPage({ params }: Params) {
         focus: share.focus,
         offsets: share.offsets,
         layoutKey,
+        token,
       }}
     />
   );

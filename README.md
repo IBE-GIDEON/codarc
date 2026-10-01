@@ -15,9 +15,9 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:3000 and paste a public GitHub repository — no
-account needed. Try `tiangolo/full-stack-fastapi-template` or
-`vercel/ai-chatbot`.
+Then open http://localhost:3000 and paste a public GitHub repository. The
+first map anyone draws is free and needs no account; after that Codarc asks
+for a plan. Try `tiangolo/full-stack-fastapi-template` or `vercel/ai-chatbot`.
 
 ```bash
 npm run build && npm run start   # production

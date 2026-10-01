@@ -59,7 +59,8 @@ export default async function ChoosePlan({
           </h1>
           <p className="mx-auto mt-3 max-w-[46ch] text-[16px] leading-[1.6] text-secondary">
             Codarc reads real code and writes real changes, so it costs real
-            money to run. There&apos;s no free tier and there never will be.
+            money to run. Your free look is one app; a plan is every app, and
+            the changes too.
           </p>
         </div>
 

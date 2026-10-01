@@ -98,6 +98,20 @@ export async function getAccount(githubId: number): Promise<AccountRow | null> {
 }
 
 /**
+ * Whether the database answered at all.
+ *
+ * `getAccount` returns null both for "no account" and for "the database
+ * didn't answer", which is fine when the answer only opens doors — but not
+ * when it closes one. Anything about to turn somebody away asks this first,
+ * so an outage can't be mistaken for an unpaid bill.
+ */
+export async function accountsReachable(): Promise<boolean> {
+  if (!isDbConfigured()) return false;
+  const { error } = await db().from("accounts").select("github_id").limit(1);
+  return !error;
+}
+
+/**
  * What someone is allowed to do, and on whose account it counts.
  *
  * A team member doesn't have a plan of their own — they ride on the team

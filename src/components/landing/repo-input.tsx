@@ -83,7 +83,7 @@ export function RepoInput() {
         <p className="mt-2.5 text-[13px] text-c-red">{error}</p>
       ) : (
         <p className="mt-3 text-[13px] text-tertiary">
-          No account needed for a public repository. Or try{" "}
+          Your first map is free, no account needed. Or try{" "}
           {EXAMPLES.map((e, i) => (
             <React.Fragment key={e}>
               {i > 0 && " · "}

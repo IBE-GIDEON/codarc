@@ -24,11 +24,15 @@ import {
   type Level,
 } from "@/lib/sitemap";
 import { Logo } from "@/components/logo";
+import { GithubMark } from "@/components/brand-marks";
 import { Button, IconButton } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 
+/** The way past a wall, when the server put one up. */
+type Gate = { plans: string; signIn: string | null };
+
 type Result =
-  | { key: string; phase: "error"; error: string; hint: string }
+  | { key: string; phase: "error"; error: string; hint: string; gate: Gate | null }
   | { key: string; phase: "ready"; map: RepoMap };
 
 const STAGES = [
@@ -94,10 +98,13 @@ function Loading({ owner, repo }: { owner: string; repo: string }) {
 function Failure({
   error,
   hint,
+  gate,
   onRetry,
 }: {
   error: string;
   hint: string;
+  /** Present when the answer is a plan, not another attempt. */
+  gate: Gate | null;
   onRetry: () => void;
 }) {
   return (
@@ -111,14 +118,39 @@ function Failure({
           {hint}
         </p>
         <div className="mt-5 flex gap-2">
-          <Button variant="primary" size="lg" onClick={onRetry}>
-            <RefreshCw className="size-3.5" /> Try again
-          </Button>
-          <Link href="/">
-            <Button variant="secondary" size="lg">
-              <ArrowLeft className="size-3.5" /> Start over
-            </Button>
-          </Link>
+          {gate ? (
+            <>
+              <Link href={gate.plans}>
+                <Button variant="primary" size="lg">
+                  See the plans
+                </Button>
+              </Link>
+              {gate.signIn ? (
+                <a href={gate.signIn}>
+                  <Button variant="secondary" size="lg">
+                    <GithubMark className="size-3.5" /> Sign in
+                  </Button>
+                </a>
+              ) : (
+                <Link href="/dashboard">
+                  <Button variant="secondary" size="lg">
+                    <ArrowLeft className="size-3.5" /> Your projects
+                  </Button>
+                </Link>
+              )}
+            </>
+          ) : (
+            <>
+              <Button variant="primary" size="lg" onClick={onRetry}>
+                <RefreshCw className="size-3.5" /> Try again
+              </Button>
+              <Link href="/">
+                <Button variant="secondary" size="lg">
+                  <ArrowLeft className="size-3.5" /> Start over
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -134,6 +166,8 @@ export type SharedContext = {
   offsets: Offsets;
   /** Kept apart from the owner's own layout so a viewer's nudges stay theirs. */
   layoutKey: string;
+  /** The link itself: proof this map was deliberately shown to them. */
+  token: string;
 };
 
 function SharedBanner({ shared }: { shared: SharedContext }) {
@@ -207,6 +241,7 @@ export function Workspace({
   // Primitives for the effect below — depending on the `shared` object itself
   // would refetch the map whenever a parent re-rendered with an equal copy.
   const sharedFocus = shared?.focus ?? null;
+  const shareToken = shared?.token ?? null;
   const [sharing, setSharing] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
@@ -257,7 +292,9 @@ export function Workspace({
   React.useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/map?repo=${encodeURIComponent(`${owner}/${repo}`)}`)
+    const ask = `/api/map?repo=${encodeURIComponent(`${owner}/${repo}`)}`;
+
+    fetch(shareToken ? `${ask}&share=${encodeURIComponent(shareToken)}` : ask)
       .then(async (res) => {
         const body = await res.json();
         if (cancelled) return;
@@ -267,6 +304,7 @@ export function Workspace({
             phase: "error",
             error: body.error ?? "That didn't work",
             hint: body.hint ?? "Try again in a moment.",
+            gate: body.gate ?? null,
           });
           return;
         }
@@ -294,13 +332,14 @@ export function Workspace({
           phase: "error",
           error: "We couldn't reach Codarc",
           hint: "Check your connection and try again.",
+          gate: null,
         });
       });
 
     return () => {
       cancelled = true;
     };
-  }, [owner, repo, key, sharedFocus, readOnly]);
+  }, [owner, repo, key, sharedFocus, shareToken, readOnly]);
 
   const state: Result | { phase: "loading" } =
     result?.key === key ? result : { phase: "loading" };
@@ -319,6 +358,7 @@ export function Workspace({
         <Failure
           error={state.error}
           hint={state.hint}
+          gate={state.gate}
           onRetry={() => setNonce((n) => n + 1)}
         />
       </div>
